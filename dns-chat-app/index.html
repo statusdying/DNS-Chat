@@ -1,13 +1,24 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dns-chat-app</title>
+    <title>DNS Chat</title>
+    <style>
+      body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+      input { width: 70%; padding: 10px; }
+      button { width: 25%; padding: 10px; background: #007bff; color: white; border: none; }
+      #logs { margin-top: 20px; border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; background: #f9f9f9; }
+      .msg { border-bottom: 1px solid #eee; padding: 5px 0; }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <h1>DNS Chat 🦕</h1>
+    <div>
+      <input type="text" id="msgInput" placeholder="Napiš zprávu..." />
+      <button id="sendBtn">Odeslat</button>
+    </div>
+    <div id="logs"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

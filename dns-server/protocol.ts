@@ -26,6 +26,7 @@ export function decodeMessage(hex: string): string {
 }
 
 // Otestování (jen pro debug, když to spustíš přímo)
+// JUST FOR DENO
 if (import.meta.main) {
   const original = "Ahoj světe! 🚀";
   const encoded = encodeMessage(original);
