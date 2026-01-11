@@ -57,7 +57,7 @@ async function handleServer() {
         incomingMsg = "[Neplatný formát]";
       }
 
-      if (incomingMsg !== "[Neplatný formát]" && incomingMsg.length > 0) {
+      if (incomingMsg !== "[Neplatný formát]" && incomingMsg.length > 0 && remoteAddr.transport === "udp") {
         console.log(`💬 Nová zpráva od ${remoteAddr.hostname}: "${incomingMsg}"`);
         messages.push(incomingMsg);
         
