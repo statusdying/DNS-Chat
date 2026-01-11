@@ -3,7 +3,7 @@ import { UdpClient } from "./udpClient";
 
 // ⚠️ Změň na IP svého počítače v lokální síti!
 // localhost (127.0.0.1) na Androidu nefunguje (odkazuje na samotný telefon).
-const SERVER_IP = " 192.168.56.1"; // <--- ZJISTI SI SVOU IP (např. ipconfig/ifconfig)
+const SERVER_IP = "192.168.56.1"; // <--- ZJISTI SI SVOU IP (např. ipconfig/ifconfig)
 const SERVER_PORT = 5300;
 
 const client = new UdpClient(SERVER_IP, SERVER_PORT);

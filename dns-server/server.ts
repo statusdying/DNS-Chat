@@ -7,7 +7,11 @@ const messages: string[] = [];
 
 console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
 
-const socket = Deno.listenDatagram({ port: PORT, transport: "udp" });
+const socket = Deno.listenDatagram({
+  port: 5300,
+  transport: "udp",
+  hostname: "0.0.0.0" // <--- Důležitá změna pro přístup zvenčí
+});
 
 function parseDomainName(buffer: Uint8Array, offset: number): string { 
   const parts: string[] = [];
