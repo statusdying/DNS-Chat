@@ -1,6 +1,6 @@
 // client.ts
 import { encodeMessage } from "./protocol.ts";
-
+const print = console.log;
 const SERVER_PORT = 5300;
 const SERVER_IP = "127.0.0.1";
 
@@ -20,12 +20,20 @@ function createQueryPacket(domain: string): Uint8Array {
 const socket = Deno.listenDatagram({ port: 0, transport: "udp" });
 
 // 1. Vstup od uživatele (zpráva)
-const myText = "Ahooooj Jak se máš?";
+let myText:string = "Ahooooooooooooooooooooooooooooooooooooooj Jak se máš?";
+myText = myText.trim();
 console.log(`📝 Píšu zprávu: "${myText}"`);
 
 // 2. Zakódování
-const encodedHex = encodeMessage(myText);
+let encodedHex:string = encodeMessage(myText);
+
+// 2.5 Rozdělení po 63 znacích
+const encodedHexArray = encodedHex.match(/.{1,63}/g);
+if(encodedHexArray != null){
+    encodedHex = encodedHexArray.join(".");    
+}
 const dnsQuery = `${encodedHex}.chat.local`;
+print("domain query:",dnsQuery);
 
 // 3. Odeslání
 const packet = createQueryPacket(dnsQuery);

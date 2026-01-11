@@ -1,5 +1,6 @@
 // server.ts
 import { decodeMessage } from "./protocol.ts";
+const print = console.log;
 
 const PORT = 5300;
 
@@ -43,11 +44,12 @@ async function handleServer() {
   for await (const [data, remoteAddr] of socket) {
     try {
       const domain = parseDomainName(data, 12);
-      
+      print(domain);
+
       // Protokol: hexkod.chat.local
       // První část domény je naše zpráva
       const firstLabel = domain.split(".")[0];
-      
+      print("firstLabel:",firstLabel);
       // Zkusíme dekódovat zprávu
       let incomingMsg = "";
       try {
