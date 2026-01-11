@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "test": "deno run -N --unstable-net client.ts"
+    "client": "deno run -N --unstable-net client.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1"

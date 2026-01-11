@@ -19,6 +19,7 @@ function createQueryPacket(domain: string): Uint8Array {
 
 const socket = Deno.listenDatagram({ port: 0, transport: "udp" });
 
+let input = prompt("Message: ")
 // 1. Vstup od uživatele (zpráva)
 let myText:string = "Ahooooooooooooooooooooooooooooooooooooooj Jak se máš?";
 myText = myText.trim();
