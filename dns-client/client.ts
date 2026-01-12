@@ -1,5 +1,6 @@
 // client.ts
 import { encodeMessage } from "../dns-server/protocol.ts";
+import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
 const domain = ".chat.local"
 const SERVER_PORT = 5300;
@@ -60,8 +61,9 @@ async function sendMessage(input:string){
         const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 1);
         try {
             const chatHistory = JSON.parse(jsonStr);
+            print(JSON.stringify(chatHistory));
             console.log("\n📬 --- CHAT HISTORIE ---");
-            chatHistory.forEach((msg: string) => console.log(`> ${msg}`));
+            chatHistory.forEach((msg: Message) => console.log(`> ${msg.text} ${msg.id}`));
             console.log("-----------------------");
         } catch (e) {
             console.log("Nepodařilo se parsovat JSON odpověď.", e);
@@ -101,7 +103,7 @@ async function receiveMessages(lastMsgId: number){
         try {
             const chatHistory = JSON.parse(jsonStr);
             console.log("\n📬 --- CHAT HISTORIE ---");
-            chatHistory.forEach((msg: string) => console.log(`> ${msg}`));
+            chatHistory.forEach((msg: Message) => console.log(`> ${msg.text} ${msg.id}`));
             console.log("-----------------------");
         } catch (e) {
             console.log("Nepodařilo se parsovat JSON odpověď.", e);

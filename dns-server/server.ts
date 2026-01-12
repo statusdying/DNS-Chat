@@ -1,10 +1,13 @@
 // server.ts
 import { decodeMessage } from "./protocol.ts";
+import { Message } from "./protocol.ts";
 const print = console.log;
 
 const PORT = 5300;
 
-const messages: string[] = [];
+
+const messages: Message[] = [];
+let lastId:number = 0;
 
 console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
 
@@ -61,8 +64,9 @@ async function handleServer() {
 
       if (incomingMsg !== "[Neplatný formát]" && incomingMsg.length > 0 && remoteAddr.transport === "udp") {
         console.log(`💬 Nová zpráva od ${remoteAddr.hostname}: "${incomingMsg}"`);
-        messages.push(incomingMsg);
-        
+        const message: Message = {text: incomingMsg, id: lastId};
+        messages.push(message);
+        lastId++;
         // Udržujeme jen posledních 10 zpráv
         if (messages.length > 10) messages.shift();
       }
