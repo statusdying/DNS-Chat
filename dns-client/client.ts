@@ -5,7 +5,7 @@ const print = console.log;
 const domain = ".chat.local"
 const SERVER_PORT = 5300;
 const SERVER_IP = "127.0.0.1";
-const socket = Deno.listenDatagram({ port: 0, transport: "udp" });
+const socket = Deno.listenDatagram({ port: 0, transport: "udp" , hostname: "0.0.0.0"});
 let lastMsgId = 0;
 
 // ... (zde nech funkci createQueryPacket z minula) ...

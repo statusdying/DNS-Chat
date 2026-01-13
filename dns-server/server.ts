@@ -4,14 +4,14 @@ import { Message } from "./protocol.ts";
 const print = console.log;
 
 const PORT = 5300;
-
+const HOSTNAME = "0.0.0.0"
 
 const messages: Message[] = [];
 let lastId:number = 0;
 
 console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
 
-const socket = Deno.listenDatagram({ port: PORT, transport: "udp" });
+const socket = Deno.listenDatagram({ port: PORT, transport: "udp", hostname: HOSTNAME });
 
 function parseDomainName(buffer: Uint8Array, offset: number): string { 
   const parts: string[] = [];
@@ -36,6 +36,8 @@ function buildResponse(req: Uint8Array, txt: string): Uint8Array {
     res.set(req.subarray(0, qEnd), 0);
     let f = v.getUint16(2); f |= 0x8400; f &= ~0x000F; v.setUint16(2, f);
     v.setUint16(4, 1); v.setUint16(6, 1);
+    v.setUint16(8, 0);  // NSCOUNT = 0
+    v.setUint16(10, 0); // ARCOUNT = 0
     let off = qEnd; v.setUint16(off, 0xC00C); off+=2; v.setUint16(off, 16); off+=2;
     v.setUint16(off, 1); off+=2; v.setUint32(off, 0); off+=4;
     const tb = new TextEncoder().encode(txt);
