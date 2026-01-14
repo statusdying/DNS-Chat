@@ -45,34 +45,6 @@ async function sendMessage(input:string){
     // 3. Odeslání
     const packet = createQueryPacket(dnsQuery);
     await socket.send(packet, { transport: "udp", hostname: SERVER_IP, port: SERVER_PORT });
-
-    // 4. Příjem odpovědi
-    const [response] = await socket.receive();
-
-    // 5. Extrakce TXT (jednoduchý parser odpovědi)
-    // Najdeme bajt s délkou TXT (před ním je 0x00 0x10 0x00 0x01 ... TTL ... RDLENGTH)
-    // HACK: Najdeme textovou odpověď tak, že najdeme '[' (začátek JSON pole)
-    const decoder = new TextDecoder();
-    const rawString = decoder.decode(response);
-    const jsonStartIndex = rawString.indexOf("[");
-    const jsonEndIndex = rawString.lastIndexOf("]");
-
-    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-        const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 1);
-        try {
-            const chatHistory = JSON.parse(jsonStr);
-            print(JSON.stringify(chatHistory));
-            console.log("\n📬 --- CHAT HISTORIE ---");
-            chatHistory.forEach((msg: Message) => console.log(`> ${msg.text} ${msg.id}`));
-            console.log("-----------------------");
-        } catch (e) {
-            console.log("Nepodařilo se parsovat JSON odpověď.", e);
-        }
-    } else {
-        console.log("Odpověď neobsahuje JSON data.");
-    }
-
-    //socket.close();
 };
 
 
@@ -86,92 +58,34 @@ async function receiveMessages(lastMsgId: number){
     // 3. Odeslání
     const packet = createQueryPacket(dnsQuery);
     await socket.send(packet, { transport: "udp", hostname: SERVER_IP, port: SERVER_PORT });
-
-    // 4. Příjem odpovědi
-    const [response] = await socket.receive();
-
-    // 5. Extrakce TXT (jednoduchý parser odpovědi)
-    // Najdeme bajt s délkou TXT (před ním je 0x00 0x10 0x00 0x01 ... TTL ... RDLENGTH)
-    // HACK: Najdeme textovou odpověď tak, že najdeme '[' (začátek JSON pole)
-    const decoder = new TextDecoder();
-    const rawString = decoder.decode(response);
-    const jsonStartIndex = rawString.indexOf("[");
-    const jsonEndIndex = rawString.lastIndexOf("]");
-
-    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-        const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 1);
-        try {
-            const chatHistory = JSON.parse(jsonStr);
-            console.log("\n📬 --- CHAT HISTORIE ---");
-            chatHistory.forEach((msg: Message) => console.log(`> ${msg.text} ${msg.id}`));
-            console.log("-----------------------");
-        } catch (e) {
-            console.log("Nepodařilo se parsovat JSON odpověď.", e);
-        }
-    } else {
-        console.log("Odpověď neobsahuje JSON data.");
-    }
-
-    //socket.close();
 };
 
-
-/*
-// 1. Vstup od uživatele (zpráva)
-const input = prompt("Message: ");
-let myText:string = "empty message";
-if(input != null){
-    myText = input.trim();
+async function listenLoop() {
+    const decoder = new TextDecoder();
+    for await(const [data] of socket){
+        try{
+            const rawString = decoder.decode(data);
+            //looking for JSON in response
+            const jsonStartIndex = rawString.indexOf("[");
+            const jsonEndIndex = rawString.lastIndexOf("]");
+            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+                const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 1);
+                const chatHistory: Message[] = JSON.parse(jsonStr);
+                console.log("\n📬 --- CHAT HISTORY ---");
+                chatHistory.forEach((msg: Message) => console.log(`> ${msg.text} ${msg.id}`));
+                console.log("-----------------------");
+            }
+        } catch(e){
+            print("Malformed packets " + e);
+        }
+    }    
 }
-
-console.log(`📝 Píšu zprávu: "${myText}"`);
-
-// 2. Zakódování
-let encodedHex:string = encodeMessage(myText);
-
-// 2.5 Rozdělení po 63 znacích
-const encodedHexArray = encodedHex.match(/.{1,63}/g);
-if(encodedHexArray != null){
-    encodedHex = encodedHexArray.join(".");    
-}
-const dnsQuery = `${encodedHex}${domain}`;
-print("domain query:",dnsQuery);
-
-// 3. Odeslání
-const packet = createQueryPacket(dnsQuery);
-await socket.send(packet, { transport: "udp", hostname: SERVER_IP, port: SERVER_PORT });
-
-// 4. Příjem odpovědi
-const [response] = await socket.receive();
-
-// 5. Extrakce TXT (jednoduchý parser odpovědi)
-// Najdeme bajt s délkou TXT (před ním je 0x00 0x10 0x00 0x01 ... TTL ... RDLENGTH)
-// HACK: Najdeme textovou odpověď tak, že najdeme '[' (začátek JSON pole)
-const decoder = new TextDecoder();
-const rawString = decoder.decode(response);
-const jsonStartIndex = rawString.indexOf("[");
-const jsonEndIndex = rawString.lastIndexOf("]");
-
-if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-    const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 1);
-    try {
-        const chatHistory = JSON.parse(jsonStr);
-        console.log("\n📬 --- CHAT HISTORIE ---");
-        chatHistory.forEach((msg: string) => console.log(`> ${msg}`));
-        console.log("-----------------------");
-    } catch (e) {
-        console.log("Nepodařilo se parsovat JSON odpověď.", e);
-    }
-} else {
-    console.log("Odpověď neobsahuje JSON data.");
-}
-
-socket.close();
-*/
 
 setInterval(async() => {
     await receiveMessages(lastMsgId);    
 }, 10000);
+
+listenLoop();
 
 const decoder = new TextDecoder();
 
