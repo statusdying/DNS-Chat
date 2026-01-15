@@ -6,7 +6,8 @@ const domain = ".chat.local"
 const SERVER_PORT = 5300;
 const SERVER_IP = "127.0.0.1";
 const socket = Deno.listenDatagram({ port: 0, transport: "udp" , hostname: "0.0.0.0"});
-let lastMsgId = 0;
+let lastMsgId:number = 0;
+let username: string = ""
 
 // ... (zde nech funkci createQueryPacket z minula) ...
 function createQueryPacket(domain: string): Uint8Array {
@@ -66,13 +67,17 @@ async function listenLoop() {
         try{
             const rawString = decoder.decode(data);
             //looking for JSON in response
-            const jsonStartIndex = rawString.indexOf("[");
-            const jsonEndIndex = rawString.lastIndexOf("]");
+            print("rawString:" + rawString)
+            const jsonStartIndex = rawString.indexOf("[{");
+            const jsonEndIndex = rawString.lastIndexOf("}]");
             if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-                const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 1);
+                const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 2);
                 const chatHistory: Message[] = JSON.parse(jsonStr);
                 console.log("\n📬 --- CHAT HISTORY ---");
-                chatHistory.forEach((msg: Message) => console.log(`> ${msg.text} ${msg.id}`));
+                chatHistory.forEach((msg: Message) =>{
+                    console.log(`>${msg.user} ${msg.text} ${msg.id}`);
+                    lastMsgId = msg.id;
+                });
                 console.log("-----------------------");
             }
         } catch(e){
@@ -81,10 +86,19 @@ async function listenLoop() {
     }    
 };
 
+function usernamePrompt():string{
+    let usernameTmp;
+    while(usernameTmp == "" || usernameTmp == null){
+        usernameTmp = prompt("Username:");
+    }
+    return usernameTmp;
+}
+
+username = usernamePrompt();
 
 setInterval(async() => {
     await receiveMessages(lastMsgId);    
-}, 10000);
+}, 5000);
 
 listenLoop();
 const decoder = new TextDecoder();
@@ -92,12 +106,13 @@ const decoder = new TextDecoder();
 for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
-    print("sending text:",text)
+    const userText = `${username}-${text}`
+    print("sending text:",userText)
     if(text == "exit"){
         socket.close();
         break;
     }
-    await sendMessage(text);
+    await sendMessage(userText);
 }
 
-
+//use chcp 65001 on Windows for Czech

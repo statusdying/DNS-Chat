@@ -1,13 +1,13 @@
 // server.ts
 import { decodeMessage } from "./protocol.ts";
 import { Message } from "./protocol.ts";
-const print = console.log;
+//const print = console.log;
 
 const PORT = 5300;
 const HOSTNAME = "0.0.0.0"
 
 const messages: Message[] = [];
-let lastId:number = 0;
+//let lastId:number = 0;
 
 console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
 
@@ -78,7 +78,7 @@ async function handleServer() {
   console.log("Čekám na zprávy...");
   for await (const [data, remoteAddr] of socket) {
     try {
-      console.log(`📨 Přijat paket od ${remoteAddr.hostname}:${remoteAddr.port} (délka: ${data.length})`);
+      //console.log(`📨 Přijat paket od ${remoteAddr.hostname}:${remoteAddr.port} (délka: ${data.length})`);
       
       const domain = parseDomainName(data, 12);
       console.log(`🔍 Dotaz na doménu: ${domain}`);
@@ -86,10 +86,10 @@ async function handleServer() {
       // ... zde je tvoje logika s firstLabel a decodeMessage ...
       // (tuto část neměň, jen pro přehlednost ji zde zkracuji)
       const firstLabel = domain.split(".")[0];
-      let incomingMsg = "[Neplatný formát]";
-      try { incomingMsg = decodeMessage(firstLabel); } catch {}
+      let _incomingMsg = "[Neplatný formát]";
+      try { _incomingMsg = decodeMessage(firstLabel); } catch(e) {console.log(e)}
       // ...
-
+      console.log(_incomingMsg)
       // Příprava odpovědi
       const responseText = JSON.stringify(messages.slice(-3));
       console.log(`📤 Odesílám odpověď: ${responseText}`);

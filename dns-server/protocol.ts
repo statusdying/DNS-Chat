@@ -28,6 +28,7 @@ export function decodeMessage(hex: string): string {
 export interface Message{
   text: string;
   id: number;
+  user: string;
 }
 
 // Otestování (jen pro debug, když to spustíš přímo)

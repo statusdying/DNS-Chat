@@ -8,6 +8,7 @@ const HOSTNAME = "0.0.0.0"
 
 const messages: Message[] = [];
 let lastId:number = 0;
+const otherUsersMsgs: object[] = [];
 
 console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
 
@@ -27,10 +28,6 @@ function parseDomainName(buffer: Uint8Array, offset: number): string {
 }
 
 function buildResponse(req: Uint8Array, txt: string): Uint8Array {
-    // Zkopírovat buildResponse z minula, je to dlouhé :) 
-    // Nebo řekni, pokud to chceš poslat celé znovu.
-    // ...
-    // Placeholder implementace pro kontext:
     let qEnd = 12; while (req[qEnd] !== 0) qEnd++; qEnd += 5;
     const res = new Uint8Array(512); const v = new DataView(res.buffer);
     res.set(req.subarray(0, qEnd), 0);
@@ -44,6 +41,12 @@ function buildResponse(req: Uint8Array, txt: string): Uint8Array {
     v.setUint16(off, tb.length + 1); off+=2; res[off] = tb.length; off++;
     res.set(tb, off); off+=tb.length; return res.subarray(0, off);
 }
+function isCorrectFormat(plaintextMsg:string): boolean{
+  if(plaintextMsg.indexOf('-') > 0){
+    return true;
+  }
+  return false;
+}
 
 async function handleServer() {
   for await (const [data, remoteAddr] of socket) {
@@ -53,30 +56,57 @@ async function handleServer() {
 
       // Protokol: hexkod.chat.local
       // První část domény je naše zpráva
-      const firstLabel = domain.split(".")[0];
-      print("firstLabel:",firstLabel);
+      const encodedMessages = domain.split(".").slice(0,-2);
+      print("firstLabel:",encodedMessages);
       // Zkusíme dekódovat zprávu
       let incomingMsg = "";
+      encodedMessages.forEach(encodedMessage => {
+        try {
+          incomingMsg = incomingMsg + encodedMessage;
+        } catch {
+          // Pokud to není hex, asi je to jen nějaký ping nebo bordel
+          incomingMsg = "[Neplatný formát]";
+        }
+      });
+      let decodedMessage:string;
       try {
-        incomingMsg = decodeMessage(firstLabel);
+          decodedMessage = decodeMessage(incomingMsg)
       } catch {
-        // Pokud to není hex, asi je to jen nějaký ping nebo bordel
-        incomingMsg = "[Neplatný formát]";
+          // Pokud to není hex, asi je to jen nějaký ping nebo bordel
+          decodedMessage = "[Neplatný formát]";
       }
 
-      if (incomingMsg !== "[Neplatný formát]" && incomingMsg.length > 0 && remoteAddr.transport === "udp") {
-        console.log(`💬 Nová zpráva od ${remoteAddr.hostname}: "${incomingMsg}"`);
-        const message: Message = {text: incomingMsg, id: lastId};
+      if(!isCorrectFormat(decodedMessage)){
+        decodedMessage = "[Neplatný formát]";
+      }
+
+      const firstHyphen:number = decodedMessage.indexOf('-');
+      const username = decodedMessage.slice(0, firstHyphen);
+      const text = decodedMessage.slice(firstHyphen + 1);
+
+      if (decodedMessage !== "[Neplatný formát]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
+        console.log(`💬 Nová zpráva od ${remoteAddr.hostname}: "${decodedMessage}"`);
+        const message: Message = {text: text, id: lastId, user: username};
         messages.push(message);
         lastId++;
         // Udržujeme jen posledních 10 zpráv
         if (messages.length > 10) messages.shift();
+      
+
+      
+      
+        messages.forEach(message => {
+            if(message.user != username){
+              print("Comparison:" +  message.user + username)
+              otherUsersMsgs.push(message);
+            }
+        });
       }
 
       // Odpověď: Pošleme poslední zprávy jako JSON (aby to klient mohl parsovat)
       // Protože TXT záznam má limit cca 255 znaků na string, musíme být struční.
-      const responseText = JSON.stringify(messages.slice(-3)); // Pošleme jen poslední 3
-
+      const responseText = JSON.stringify(otherUsersMsgs.slice(-3)); // Pošleme jen poslední 3
+      print(responseText)
       const responsePacket = buildResponse(data, responseText);
       await socket.send(responsePacket, remoteAddr);
 
