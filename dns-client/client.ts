@@ -79,18 +79,19 @@ async function listenLoop() {
             print("Malformed packets " + e);
         }
     }    
-}
+};
+
 
 setInterval(async() => {
     await receiveMessages(lastMsgId);    
 }, 10000);
 
 listenLoop();
-
 const decoder = new TextDecoder();
 
 for await(const chunk of Deno.stdin.readable){
-    const text = decoder.decode(chunk).trim();
+    const rawtext = decoder.decode(chunk, { stream: true })
+    const text = rawtext.trim();
     print("sending text:",text)
     if(text == "exit"){
         socket.close();
