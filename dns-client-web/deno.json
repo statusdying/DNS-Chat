@@ -1,0 +1,8 @@
+{
+  "tasks": {
+    "web": "deno run --allow-net webapp.ts"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1"
+  }
+}
