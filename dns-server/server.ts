@@ -7,8 +7,8 @@ const PORT = 5300;
 const HOSTNAME = "0.0.0.0"
 
 const messages: Message[] = [];
-let lastId:number = 0;
-const otherUsersMsgs: object[] = [];
+let lastId:number = 1;
+let otherUsersMsgs: object[] = [];
 
 console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
 
@@ -59,15 +59,8 @@ async function handleServer() {
       const encodedMessages = domain.split(".").slice(0,-2);
       print("firstLabel:",encodedMessages);
       // Zkusíme dekódovat zprávu
-      let incomingMsg = "";
-      encodedMessages.forEach(encodedMessage => {
-        try {
-          incomingMsg = incomingMsg + encodedMessage;
-        } catch {
-          // Pokud to není hex, asi je to jen nějaký ping nebo bordel
-          incomingMsg = "[Neplatný formát]";
-        }
-      });
+      const incomingMsg:string = encodedMessages.join("");
+      
       let decodedMessage:string;
       try {
           decodedMessage = decodeMessage(incomingMsg)
@@ -87,7 +80,10 @@ async function handleServer() {
       if (decodedMessage !== "[Neplatný formát]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
         console.log(`💬 Nová zpráva od ${remoteAddr.hostname}: "${decodedMessage}"`);
         const message: Message = {text: text, id: lastId, user: username};
-        messages.push(message);
+        if(!text.startsWith("ping")){
+          messages.push(message);
+        }
+        
         lastId++;
         // Udržujeme jen posledních 10 zpráv
         if (messages.length > 10) messages.shift();
@@ -109,7 +105,7 @@ async function handleServer() {
       print(responseText)
       const responsePacket = buildResponse(data, responseText);
       await socket.send(responsePacket, remoteAddr);
-
+      otherUsersMsgs = [];
     } catch (err) {
       console.error("Chyba:", err);
     }

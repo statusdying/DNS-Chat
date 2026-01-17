@@ -8,6 +8,7 @@ const SERVER_IP = "127.0.0.1";
 const socket = Deno.listenDatagram({ port: 0, transport: "udp" , hostname: "0.0.0.0"});
 let lastMsgId:number = 0;
 let username: string = ""
+const allMessages: Message[] = [];
 
 // ... (zde nech funkci createQueryPacket z minula) ...
 function createQueryPacket(domain: string): Uint8Array {
@@ -48,18 +49,27 @@ async function sendMessage(input:string){
     await socket.send(packet, { transport: "udp", hostname: SERVER_IP, port: SERVER_PORT });
 };
 
-
-
-
-async function receiveMessages(lastMsgId: number){
-
-    const dnsQuery = `${lastMsgId}${domain}`;
+async function receiveMessages(username: string, lastMsgId: number){
+    const encodedHex:string = encodeMessage(`${username}-ping-${lastMsgId}`);
+    const dnsQuery = `${encodedHex}${domain}`; //
     print("domain refresh query:",dnsQuery);
 
     // 3. Odeslání
     const packet = createQueryPacket(dnsQuery);
     await socket.send(packet, { transport: "udp", hostname: SERVER_IP, port: SERVER_PORT });
 };
+
+function displayMessages(allMsgs: Message[]):void{
+    print("\n📬 --- CHAT HISTORY ---");
+    allMsgs.forEach(msg => {
+        if(msg.user !== username){
+            print(`\t\t\t${msg.user}: ${msg.text}`);
+        }else{
+            print(`You:${msg.text}`)
+        }
+    });
+    print("-----------------------");
+}
 
 async function listenLoop() {
     const decoder = new TextDecoder();
@@ -73,12 +83,16 @@ async function listenLoop() {
             if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
                 const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 2);
                 const chatHistory: Message[] = JSON.parse(jsonStr);
-                console.log("\n📬 --- CHAT HISTORY ---");
                 chatHistory.forEach((msg: Message) =>{
-                    console.log(`>${msg.user} ${msg.text} ${msg.id}`);
-                    lastMsgId = msg.id;
+                    //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
+                    if(msg.id>lastMsgId){
+                        allMessages.push(msg);
+                        lastMsgId = msg.id;
+                    }
+                    
+                    
                 });
-                console.log("-----------------------");
+                displayMessages(allMessages);
             }
         } catch(e){
             print("Malformed packets " + e);
@@ -97,7 +111,7 @@ function usernamePrompt():string{
 username = usernamePrompt();
 
 setInterval(async() => {
-    await receiveMessages(lastMsgId);    
+    await receiveMessages(username, lastMsgId);    
 }, 5000);
 
 listenLoop();
@@ -112,6 +126,12 @@ for await(const chunk of Deno.stdin.readable){
         socket.close();
         break;
     }
+    const sendMsg:Message = {  
+        text: text,
+        id: 0,
+        user: username
+    } 
+    allMessages.push(sendMsg);
     await sendMessage(userText);
 }
 
