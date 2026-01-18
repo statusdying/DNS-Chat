@@ -111,14 +111,37 @@
             color: #e0f0ff;
         }
 
-        /* --- INPUT BAR (JEN VIZUÁLNÍ) --- */
         .input-area {
             padding: 15px;
             border-top: 1px solid #ddd;
             background: #f0f2f5;
-            text-align: center;
-            color: #65676b;
-            font-size: 12px;
+            display: flex; /* Změna na flexbox */
+            gap: 10px;
+            align-items: center;
+        }
+
+        #msg-input {
+            flex: 1; /* Roztáhne se na zbytek místa */
+            padding: 10px 15px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            outline: none;
+            font-size: 15px;
+        }
+
+        #send-btn {
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        #send-btn:hover {
+            background-color: #0073e6;
         }
     </style>
 </head>
@@ -135,7 +158,8 @@
         </div>
 
         <div class="input-area">
-            Psaní zpráv probíhá v terminálu. Zde pouze čteš.
+            <input type="text" id="msg-input" placeholder="Napiš zprávu..." autocomplete="off">
+            <button id="send-btn" onclick="handleSend()">Odeslat</button>
         </div>
     </div>
 
@@ -149,12 +173,39 @@
         const MY_USERNAME = "Ja"; 
 
         const chatWindow = document.getElementById('chat-window');
+        const inputField = document.getElementById('msg-input');
+
+
         let lastMessageCount = 0;
 
         function sendMessage(message) {
-            console.log(`SENT: ${message}`);
+            console.log(`SENT: ${message.text}`);
             websocket.send(message);
         };
+
+        async function handleSend() {
+            const text = inputField.value.trim();
+            if (!text) return;
+
+            msg = {
+                id: lastMessageCount+1,
+                text: text,
+                user: MY_USERNAME
+            }
+
+            inputField.value = "";
+            lastMessageCount++;
+            await sendMessage(msg);
+            renderMessages([msg]);
+        }
+
+        inputField.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                handleSend();
+            }
+        });
+
+
 
 
         websocket.onopen = (e) => {
@@ -174,13 +225,12 @@
             console.log(`RECEIVED: ${e.data}`);
             let messages = JSON.parse(e.data);
             console.log("messages length", messages.length)
-            fetchMessages(messages);
+            //fetchMessages(messages);
         };
 
         websocket.onerror = (e) => {
             console.log(`ERROR: ${e.data}`);
         };
-        // TOTO JE TVŮJ NICK - musí se shodovat s tím v terminálu
 
 
         async function fetchMessages(messages) {
@@ -200,11 +250,13 @@
 
         function renderMessages(data) {
             chatWindow.innerHTML = data.map(msg => {
-                // Zjistíme, jestli je to moje zpráva
-                const isMe = msg.user === MY_USERNAME;
-                
-                // Vybereme CSS třídu: 'me' (pro mě) nebo 'other' (pro ostatní)
-                // Podle tvého zadání: user === MY_USERNAME -> LEVÁ STRANA
+                let isMe;
+                if(msg.user === MY_USERNAME){
+                    isMe = true;
+                } else {
+                    isMe = false;
+                }
+
                 const cssClass = isMe ? 'me' : 'other';
                 
                 // Formátování času
