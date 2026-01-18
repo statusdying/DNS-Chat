@@ -1,6 +1,7 @@
 {
   "tasks": {
-    "web": "deno run --allow-net webapp.ts"
+    "web": "deno run --allow-net --allow-read webapp.ts",
+    "webws": "deno run --allow-net --allow-read webapp-ws.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1"
