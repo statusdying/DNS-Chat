@@ -101,8 +101,8 @@
             justify-content: flex-end; /* Zarovnat doprava */
         }
         .message-row.other .bubble {
-            background-color: #0084ff; /* Messenger Modrá */
-            color: white;
+            background-color: #c0e7b2; /* Messenger Modrá #0084ff */
+            color: black;
             border-radius: 18px;
             border-bottom-right-radius: 4px; /* Ostrý roh vpravo dole */
         }
@@ -180,7 +180,7 @@
 
         function sendMessage(message) {
             console.log(`SENT: ${message.text}`);
-            websocket.send(message);
+            websocket.send(message.text);
         };
 
         async function handleSend() {
@@ -225,7 +225,7 @@
             console.log(`RECEIVED: ${e.data}`);
             let messages = JSON.parse(e.data);
             console.log("messages length", messages.length)
-            //fetchMessages(messages);
+            fetchMessages(messages);
         };
 
         websocket.onerror = (e) => {
