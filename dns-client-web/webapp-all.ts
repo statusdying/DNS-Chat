@@ -1,5 +1,4 @@
 // client.ts
-import { json } from "node:stream/consumers";
 import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
@@ -7,8 +6,9 @@ const domain = ".chat.local"
 const SERVER_PORT = 5300;
 const SERVER_IP = "127.0.0.1";
 const socket = Deno.listenDatagram({ port: 0, transport: "udp" , hostname: "0.0.0.0"});
-let lastMsgId:number = 0;
+let lastMsgId: number = 0;
 let username: string = ""
+let websocketAddr: WebSocket;
 const allMessages: Message[] = [];
 
 // ... (zde nech funkci createQueryPacket z minula) ...
@@ -27,15 +27,17 @@ function createQueryPacket(domain: string): Uint8Array {
 async function sendMessage(input:string){
     // 1. Vstup od uživatele (zpráva)
     //const input = prompt("Message: ");
-    let myText:string = "empty message";
+    let nonNullText:string = "empty message";
     if(input != null){
-        myText = input;
+        nonNullText = input;
     }
 
-    console.log(`📝 Píšu zprávu: "${myText}"`);
+    const text = nonNullText.trim();
+    const userText = `${username}-${text}`
+    print("sending text:",userText)
 
     // 2. Zakódování
-    let encodedHex:string = encodeMessage(myText);
+    let encodedHex:string = encodeMessage(userText);
 
     // 2.5 Rozdělení po 63 znacích
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
@@ -91,8 +93,8 @@ async function listenLoop() {
                         lastMsgId = msg.id;
                     }
                     
-                    
                 });
+                websocketAddr.send(JSON.stringify(allMessages));  
                 displayMessages(allMessages);
             }
         } catch(e){
@@ -126,15 +128,18 @@ Deno.serve({
 
     socket.onopen = () => {
       console.log("CONNECTED");
+      websocketAddr = socket;
     };
     socket.onmessage = (event) => {
-      console.log("RECEIVED: "+ JSON.stringify(event.data));
-      let ownMsg: Message = {
+      console.log("RECEIVED: "+ event.data + JSON.stringify(event.data));
+      const ownMsg: Message = {
         id: 0,
-        text: JSON.stringify(event.data),
+        text: event.data,
         user: username
       };
+      sendMessage(ownMsg.text);
       allMessages.push(ownMsg);
+      print("ALL MESSAGES: " + JSON.stringify(allMessages))
       //TODO move from onmessage to DNS Client Message Received
       socket.send(JSON.stringify(allMessages));
     };
@@ -158,8 +163,8 @@ const decoder = new TextDecoder();
 for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
-    const userText = `${username}-${text}`
-    print("sending text:",userText)
+    //const userText = `${username}-${text}`
+    //print("sending text:",userText)
     if(text == "exit"){
         socket.close();
         break;
@@ -170,27 +175,8 @@ for await(const chunk of Deno.stdin.readable){
         user: username
     } 
     allMessages.push(sendMsg);
-    await sendMessage(userText);
+    await sendMessage(text);
 }
-
-const messages: Message[] = 
-[
-    {
-        text: "msg1",
-        id: 1,
-        user: "Ja"
-    },
-    {
-        text: "msg2",
-        id: 2,
-        user: "User2"
-    },
-        {
-        text: "msg3",
-        id: 3,
-        user: "User3"
-    }
-];
 
 
 

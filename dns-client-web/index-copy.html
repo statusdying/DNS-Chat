@@ -154,6 +154,7 @@
         </header>
 
         <div id="chat-window">
+            
             <div style="text-align:center; color:#ccc; margin-top: 20px;">Načítám DNS data...</div>
         </div>
 
@@ -170,7 +171,7 @@
         const websocket = new WebSocket(wsUri);
         const messages = [];
         let pingInterval;
-        const MY_USERNAME = "Ja"; 
+        let MY_USERNAME = ""; 
 
         const chatWindow = document.getElementById('chat-window');
         const inputField = document.getElementById('msg-input');
@@ -210,10 +211,10 @@
 
         websocket.onopen = (e) => {
             console.log("CONNECTED");
-            sendMessage("ping");
-            pingInterval = setInterval(() => {
-                sendMessage("ping");
-            }, 5000);
+            //sendMessage("ping");
+            //pingInterval = setInterval(() => {
+            //    sendMessage("ping");
+            //}, 5000);
         };
 
         websocket.onclose = (e) => {
@@ -236,7 +237,7 @@
         async function fetchMessages(messages) {
             try {
                 // Překreslit jen pokud máme novou zprávu (jednoduchá optimalizace)
-                if (messages.length !== lastMessageCount) {
+                if (true) { //messages.length !== lastMessageCount
                     renderMessages(messages);
                     lastMessageCount = messages.length;
                     
