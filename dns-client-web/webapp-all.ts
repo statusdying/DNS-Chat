@@ -117,6 +117,14 @@ Deno.serve({
   port: 8081,
   async handler(request) {
     if (request.headers.get("upgrade") !== "websocket") {
+
+        const url = new URL(request.url);
+        const usernameRaw: string|null = url.searchParams.get("username");
+        
+        if(username === "" && usernameRaw !== null){
+            username = usernameRaw;
+        }
+        
       // If the request is a normal HTTP request,
       // we serve the client HTML file.
       const file = await Deno.open("./index-copy.html", { read: true });
@@ -132,14 +140,16 @@ Deno.serve({
     };
     socket.onmessage = (event) => {
       console.log("RECEIVED: "+ event.data + JSON.stringify(event.data));
+      const parsedMsg = JSON.parse(event.data);
       const ownMsg: Message = {
         id: 0,
-        text: event.data,
-        user: username
+        text: parsedMsg.text,
+        user: parsedMsg.user
       };
+      username = parsedMsg.user;
       sendMessage(ownMsg.text);
       allMessages.push(ownMsg);
-      print("ALL MESSAGES: " + JSON.stringify(allMessages))
+      print("ALL MESSAGES: " + JSON.stringify(allMessages));    
       //TODO move from onmessage to DNS Client Message Received
       socket.send(JSON.stringify(allMessages));
     };
@@ -151,7 +161,7 @@ Deno.serve({
 });
 
 
-username = usernamePrompt();
+//username = usernamePrompt();
 
 setInterval(async() => {
     await receiveMessages(username, lastMsgId);    

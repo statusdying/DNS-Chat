@@ -176,12 +176,19 @@
         const chatWindow = document.getElementById('chat-window');
         const inputField = document.getElementById('msg-input');
 
-
         let lastMessageCount = 0;
+
+        while(MY_USERNAME == "" || MY_USERNAME == null){
+            MY_USERNAME = prompt("what is your username?");
+        }
+        
+        const params = new URLSearchParams();
+        params.append('username', MY_USERNAME);
+        fetch(`/?${params}`);
 
         function sendMessage(message) {
             console.log(`SENT: ${message.text}`);
-            websocket.send(message.text);
+            websocket.send(JSON.stringify(message));
         };
 
         async function handleSend() {
