@@ -2,12 +2,13 @@
 import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
-const domain = ".yep.chat.local"
+const domain = ".x.chat.local"
 const SERVER_PORT = 53;
 const SERVER_IP = "34.88.142.87"; //"127.0.0.1";
 const socket = Deno.listenDatagram({ port: 0, transport: "udp" , hostname: "0.0.0.0"});
-let lastMsgId:number = 0;
+let lastMsgId: number = 0;
 let username: string = ""
+let websocketAddr: WebSocket;
 const allMessages: Message[] = [];
 
 // ... (zde nech funkci createQueryPacket z minula) ...
@@ -26,15 +27,17 @@ function createQueryPacket(domain: string): Uint8Array {
 async function sendMessage(input:string){
     // 1. Vstup od uživatele (zpráva)
     //const input = prompt("Message: ");
-    let myText:string = "empty message";
+    let nonNullText:string = "empty message";
     if(input != null){
-        myText = input;
+        nonNullText = input;
     }
 
-    console.log(`📝 Píšu zprávu: "${myText}"`);
+    const text = nonNullText.trim();
+    const userText = `${username}-${text}`
+    print("sending text:",userText)
 
     // 2. Zakódování
-    let encodedHex:string = encodeMessage(myText);
+    let encodedHex:string = encodeMessage(userText);
 
     // 2.5 Rozdělení po 63 znacích
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
@@ -90,8 +93,8 @@ async function listenLoop() {
                         lastMsgId = msg.id;
                     }
                     
-                    
                 });
+                websocketAddr.send(JSON.stringify(allMessages));  
                 displayMessages(allMessages);
             }
         } catch(e){
@@ -99,6 +102,8 @@ async function listenLoop() {
         }
     }    
 };
+
+
 
 function usernamePrompt():string{
     let usernameTmp;
@@ -108,7 +113,55 @@ function usernamePrompt():string{
     return usernameTmp;
 }
 
-username = usernamePrompt();
+Deno.serve({
+  port: 8081,
+  async handler(request) {
+    if (request.headers.get("upgrade") !== "websocket") {
+
+        const url = new URL(request.url);
+        const usernameRaw: string|null = url.searchParams.get("username");
+        
+        if(username === "" && usernameRaw !== null){
+            username = usernameRaw;
+        }
+        
+      // If the request is a normal HTTP request,
+      // we serve the client HTML file.
+      const file = await Deno.open("./index.html", { read: true });
+      return new Response(file.readable);
+    }
+    // If the request is a websocket upgrade,
+    // we need to use the Deno.upgradeWebSocket helper
+    const { socket, response } = Deno.upgradeWebSocket(request);
+
+    socket.onopen = () => {
+      console.log("CONNECTED");
+      websocketAddr = socket;
+    };
+    socket.onmessage = (event) => {
+      console.log("RECEIVED: "+ event.data + JSON.stringify(event.data));
+      const parsedMsg = JSON.parse(event.data);
+      const ownMsg: Message = {
+        id: 0,
+        text: parsedMsg.text,
+        user: parsedMsg.user
+      };
+      username = parsedMsg.user;
+      sendMessage(ownMsg.text);
+      allMessages.push(ownMsg);
+      print("ALL MESSAGES: " + JSON.stringify(allMessages));    
+      //TODO move from onmessage to DNS Client Message Received
+      socket.send(JSON.stringify(allMessages));
+    };
+    socket.onclose = () => console.log("DISCONNECTED");
+    socket.onerror = (error) => console.error("ERROR:", error);
+
+    return response;
+  },
+});
+
+
+//username = usernamePrompt();
 
 setInterval(async() => {
     await receiveMessages(username, lastMsgId);    
@@ -120,8 +173,8 @@ const decoder = new TextDecoder();
 for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
-    const userText = `${username}-${text}`
-    print("sending text:",userText)
+    //const userText = `${username}-${text}`
+    //print("sending text:",userText)
     if(text == "exit"){
         socket.close();
         break;
@@ -132,7 +185,9 @@ for await(const chunk of Deno.stdin.readable){
         user: username
     } 
     allMessages.push(sendMsg);
-    await sendMessage(userText);
+    await sendMessage(text);
 }
+
+
 
 //use chcp 65001 on Windows for Czech

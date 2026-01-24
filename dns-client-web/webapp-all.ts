@@ -3,8 +3,8 @@ import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
 const domain = ".chat.local"
-const SERVER_PORT = 5300;
-const SERVER_IP = "127.0.0.1";
+const SERVER_PORT = 53;
+const SERVER_IP = "34.88.142.87"; //"127.0.0.1";
 const socket = Deno.listenDatagram({ port: 0, transport: "udp" , hostname: "0.0.0.0"});
 let lastMsgId: number = 0;
 let username: string = ""

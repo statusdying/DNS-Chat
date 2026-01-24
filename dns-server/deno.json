@@ -1,6 +1,7 @@
 {
   "tasks": {
     "serv": "deno run -N --unstable-net server.ts",
+    "servprod": "deno run -N --unstable-net server-prod.ts",
     "test": "deno run -N --unstable-net tester.ts",
     "test2": "deno run -N --unstable-net tester2.ts"
   },
