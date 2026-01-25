@@ -3,7 +3,7 @@ import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
 const domain = ".my.domain.com"
-let local = false;
+let local = true;
 let lastMsgId: number = 0;
 let username: string = "";
 let sendMsgIndex = 0;

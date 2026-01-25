@@ -23,19 +23,6 @@ function fixDnsEncoding(binaryString: string): string {
     return new TextDecoder("utf-8").decode(bytes);
 }
 
-// ... (zde nech funkci createQueryPacket z minula) ...
-function createQueryPacket(domain: string): Uint8Array {
-    // ... viz minulý kód ...
-    const buffer = new Uint8Array(512); const view = new DataView(buffer.buffer);
-    view.setUint16(0, 1234); view.setUint16(2, 0x0100); view.setUint16(4, 1);
-    let offset = 12; domain.split(".").forEach(l => {
-        buffer[offset] = l.length; offset++;
-        new TextEncoder().encodeInto(l, buffer.subarray(offset)); offset+=l.length;
-    });
-    buffer[offset] = 0; offset++; view.setUint16(offset, 1); offset+=2;
-    view.setUint16(offset, 1); offset+=2; return buffer.subarray(0, offset);
-}
-
 async function sendMessage(input:string){
     // 1. Vstup od uživatele (zpráva)
     //const input = prompt("Message: ");
@@ -50,6 +37,12 @@ async function sendMessage(input:string){
         nonDupId: sendMsgIndex
     } 
     allMessages.push(sendMsg);
+    
+    // change Index for each message to get rid of duplications on serverside
+    // DNS resolver can sometimes send DNS request twice
+    sendMsgIndex++;
+    if(sendMsgIndex > 10) sendMsgIndex = 0; 
+    
     //const text = nonNullText.trim();
     const messageToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`
     print("sending text:",messageToEncode)

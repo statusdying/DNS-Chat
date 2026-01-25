@@ -168,7 +168,7 @@
         // --- 3. KLIENTSKÁ LOGIKA ---
         //websocket setup
         const wsUri = "ws://127.0.0.1:8081/";
-        const websocket = new WebSocket(wsUri);
+        
         const messages = [];
         let pingInterval;
         let MY_USERNAME = ""; 
@@ -181,7 +181,10 @@
         while(MY_USERNAME == "" || MY_USERNAME == null){
             MY_USERNAME = prompt("what is your username?");
         }
-        
+
+        //websocket needs to be initialized after Prompt to not get blocked
+        const websocket = new WebSocket(wsUri);
+
         const params = new URLSearchParams();
         params.append('username', MY_USERNAME);
         fetch(`/?${params}`);
