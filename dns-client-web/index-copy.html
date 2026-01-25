@@ -107,8 +107,8 @@
             border-bottom-right-radius: 4px; /* Ostrý roh vpravo dole */
         }
         .message-row.other .meta {
-            text-align: right;
-            color: #e0f0ff;
+            text-align: left;
+            color: #252525;
         }
 
         .input-area {
@@ -150,7 +150,7 @@
     <div class="app-container">
         <header>
             <span class="status-dot"></span>
-            <h1>DNS Secure Chat</h1>
+            <h1>DNS <s>Secure</s> Chat</h1>
         </header>
 
         <div id="chat-window">
@@ -272,11 +272,11 @@
 
                 return (`<div class="message-row ${cssClass}">
                         <div class="bubble">
-                            <span class="meta">${msg.user} • ${time}</span>
+                            <span class="meta">${msg.user} • </span> 
                             ${msg.text}
                         </div>
                     </div>`)
-                ;
+                ; // ${time}
             }).join('');
         }
     </script>

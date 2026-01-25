@@ -3,22 +3,23 @@ import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
 const domain = ".my.domain.com"
-let local = true;
+let local = false;
 let lastMsgId: number = 0;
-let username: string = ""
+let username: string = "";
+let sendMsgIndex = 0;
 const allMessages: Message[] = [];
 
 
 function fixDnsEncoding(binaryString: string): string {
-    // 1. Vytvoříme buffer o stejné délce
+    // create a buffer of a same length
     const bytes = new Uint8Array(binaryString.length);
     
-    // 2. Každý znak převedeme zpět na jeho byte hodnotu (0-255)
+    // convert each symbol to byte value (0-255)
     for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // 3. Dekódujeme pole bytů jako UTF-8
+    // decode it back as UTF8
     return new TextDecoder("utf-8").decode(bytes);
 }
 
@@ -33,14 +34,19 @@ async function sendMessage(input:string){
     const sendMsg: Message = {  
         text: myText,
         id: 0,
-        user: username
+        user: username,
+        nonDupId: sendMsgIndex
     };
 
     allMessages.push(sendMsg);
 
+   
+    const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
 
+    sendMsgIndex++;
+    if(sendMsgIndex > 10) sendMsgIndex = 0; 
     // 2. Zakódování
-    let encodedHex:string = encodeMessage(myText);
+    let encodedHex:string = encodeMessage(allTextToEncode);
 
     // 2.5 Rozdělení po 63 znacích
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
@@ -49,7 +55,7 @@ async function sendMessage(input:string){
     }
     const dnsQuery = `${encodedHex}${domain}`;
 
-    console.log(`📝 Píšu zprávu: "${myText}"`);
+    console.log(`📝 Píšu zprávu: "${allTextToEncode}"`);
     print("domain msg query:",dnsQuery);
     displayMessages(allMessages); 
 
@@ -71,7 +77,7 @@ async function receiveMessages(username: string){
     const dnsQuery = `${encodedHex}${domain}`; //
     print("domain refresh query:",dnsQuery);
 
-    let responses:string[][];
+    let responses: string[][];
     if(local == true){
         responses = await Deno.resolveDns(dnsQuery, "TXT", {nameServer: { ipAddr: "127.0.0.1", port: 5300 }});
     } else{
@@ -132,12 +138,12 @@ for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
     const userText = `${username}-${text}`
-    print("sending text:",userText)
+    //print("sending text:",userText)
     if(text == "exit"){
         break;
     }
 
-    await sendMessage(userText);
+    await sendMessage(text);
 }
 
 //use chcp 65001 on Windows for Czech

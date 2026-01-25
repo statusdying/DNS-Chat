@@ -2,15 +2,26 @@
 import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
-const domain = ".chat.local"
-const SERVER_PORT = 53;
-const SERVER_IP = "34.88.142.87"; //"127.0.0.1";
-const socket = Deno.listenDatagram({ port: 0, transport: "udp" , hostname: "0.0.0.0"});
+const domain = ".my.domain.com"
+let local = false;
 let lastMsgId: number = 0;
-let username: string = "";
 let sendMsgIndex = 0;
+let username: string = ""
 let websocketAddr: WebSocket;
 const allMessages: Message[] = [];
+
+
+function fixDnsEncoding(binaryString: string): string {
+    // create a buffer of a same length
+    const bytes = new Uint8Array(binaryString.length);
+    
+    // convert each symbol to byte value (0-255)
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    // decode it back as UTF8
+    return new TextDecoder("utf-8").decode(bytes);
+}
 
 // ... (zde nech funkci createQueryPacket z minula) ...
 function createQueryPacket(domain: string): Uint8Array {
@@ -32,13 +43,21 @@ async function sendMessage(input:string){
     if(input != null){
         nonNullText = input;
     }
-
-    const text = nonNullText.trim();
-    const userText = `${username}-${text}`
-    print("sending text:",userText)
+    const sendMsg:Message = {  
+        text: nonNullText.trim(),
+        id: 0,
+        user: username,
+        nonDupId: sendMsgIndex
+    } 
+    allMessages.push(sendMsg);
+    //const text = nonNullText.trim();
+    const messageToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`
+    print("sending text:",messageToEncode)
+    websocketAddr.send(JSON.stringify(allMessages)); 
+    displayMessages(allMessages);
 
     // 2. Zakódování
-    let encodedHex:string = encodeMessage(userText);
+    let encodedHex:string = encodeMessage(messageToEncode);
 
     // 2.5 Rozdělení po 63 znacích
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
@@ -48,19 +67,53 @@ async function sendMessage(input:string){
     const dnsQuery = `${encodedHex}${domain}`;
     print("domain msg query:",dnsQuery);
 
-    // 3. Odeslání
-    const packet = createQueryPacket(dnsQuery);
-    await socket.send(packet, { transport: "udp", hostname: SERVER_IP, port: SERVER_PORT });
+    try{
+        //using Deno.resolveDNS to send packets through DNS resolver and not directly to DNS server
+        if(local == true){
+            await Deno.resolveDns(dnsQuery, "TXT", {nameServer: { ipAddr: "127.0.0.1", port: 5300 }});
+        } else{
+            await Deno.resolveDns(dnsQuery, "TXT");
+        }
+
+    }catch(e){
+        print(e);
+    }
 };
 
-async function receiveMessages(username: string, lastMsgId: number){
+async function receiveMessages(username: string){
     const encodedHex:string = encodeMessage(`${username}-ping-${lastMsgId}`);
     const dnsQuery = `${encodedHex}${domain}`; //
     print("domain refresh query:",dnsQuery);
 
-    // 3. Odeslání
-    const packet = createQueryPacket(dnsQuery);
-    await socket.send(packet, { transport: "udp", hostname: SERVER_IP, port: SERVER_PORT });
+    let responses: string[][];
+    if(local == true){
+        responses = await Deno.resolveDns(dnsQuery, "TXT", {nameServer: { ipAddr: "127.0.0.1", port: 5300 }});
+    } else{
+        responses = await Deno.resolveDns(dnsQuery, "TXT");
+    }
+
+    const rawString = responses.flat().join("");
+    print("rawString:" + rawString)
+
+    const fixedString = fixDnsEncoding(rawString);
+    const jsonStartIndex = fixedString.indexOf("[{");
+    const jsonEndIndex = fixedString.lastIndexOf("}]");
+    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+        const jsonStr = fixedString.substring(jsonStartIndex, jsonEndIndex + 2);
+        const chatHistory: Message[] = JSON.parse(jsonStr);
+        chatHistory.forEach((msg: Message) =>{
+            //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
+            if(msg.id>lastMsgId){
+                allMessages.push(msg);
+                lastMsgId = msg.id;
+            }
+            
+        });
+        websocketAddr.send(JSON.stringify(allMessages));  
+        displayMessages(allMessages);
+    }
+
+
 };
 
 function displayMessages(allMsgs: Message[]):void{
@@ -75,6 +128,7 @@ function displayMessages(allMsgs: Message[]):void{
     print("-----------------------");
 }
 
+/*
 async function listenLoop() {
     const decoder = new TextDecoder();
     for await(const [data] of socket){
@@ -103,7 +157,7 @@ async function listenLoop() {
         }
     }    
 };
-
+*/
 
 
 function _usernamePrompt():string{
@@ -141,16 +195,21 @@ Deno.serve({
     };
     socket.onmessage = (event) => {
       console.log("RECEIVED: "+ event.data + JSON.stringify(event.data));
+      //const usernameprefix: string = "username: ";
+      //if(event.data.startsWith(usernameprefix)){
+      //  username = event.data.substring(usernameprefix.length)
+      //}
+
       const parsedMsg = JSON.parse(event.data);
       const ownMsg: Message = {
         id: 0,
         text: parsedMsg.text,
         user: parsedMsg.user,
-        nonDupId: sendMsgIndex
+        nonDupId: parsedMsg.nonDupId
       };
-      username = parsedMsg.user;
+      //username = parsedMsg.user;
       sendMessage(ownMsg.text);
-      allMessages.push(ownMsg);
+      //allMessages.push(ownMsg);
       print("ALL MESSAGES: " + JSON.stringify(allMessages));    
       //TODO move from onmessage to DNS Client Message Received
       socket.send(JSON.stringify(allMessages));
@@ -163,13 +222,26 @@ Deno.serve({
 });
 
 
+
+try {
+  const command = new Deno.Command(Deno.build.os === "windows" ? "explorer" : "open", {
+    args: ["http://127.0.0.1:8081"],
+  });
+  command.spawn();
+} catch (e) {
+    print("error opening a browser:" + e);
+}
+
 //username = usernamePrompt();
 
 setInterval(async() => {
-    await receiveMessages(username, lastMsgId);    
+    if(username == ""){
+        return;
+    }
+    await receiveMessages(username);    
 }, 5000);
 
-listenLoop();
+//listenLoop();
 const decoder = new TextDecoder();
 
 for await(const chunk of Deno.stdin.readable){
@@ -178,16 +250,10 @@ for await(const chunk of Deno.stdin.readable){
     //const userText = `${username}-${text}`
     //print("sending text:",userText)
     if(text == "exit"){
-        socket.close();
+        //socket.close();
         break;
     }
-    const sendMsg:Message = {  
-        text: text,
-        id: 0,
-        user: username,
-        nonDupId: sendMsgIndex
-    } 
-    allMessages.push(sendMsg);
+
     await sendMessage(text);
 }
 

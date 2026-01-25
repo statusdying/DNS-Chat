@@ -105,7 +105,7 @@ async function listenLoop() {
 
 
 
-function usernamePrompt():string{
+function _usernamePrompt():string{
     let usernameTmp;
     while(usernameTmp == "" || usernameTmp == null){
         usernameTmp = prompt("Username:");

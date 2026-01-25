@@ -15,6 +15,7 @@ interface Message{
   text: string;
   id: number;
   user: string;
+  nonDupId: number;
 }
 
 const print = console.log;
@@ -24,7 +25,6 @@ const HOSTNAME = "0.0.0.0"
 
 const messages: Message[] = [];
 let lastId:number = 1;
-let otherUsersMsgs: object[] = [];
 
 console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
 
@@ -169,29 +169,45 @@ async function handleServer() {
         decodedMessage = "[Neplatný formát]";
       }
 
-      const firstHyphen:number = decodedMessage.indexOf('-');
+      const firstHyphen: number = decodedMessage.indexOf('-');
+      const lastHyphen: number = decodedMessage.lastIndexOf('-');
       const username = decodedMessage.slice(0, firstHyphen);
-      const text = decodedMessage.slice(firstHyphen + 1);
-
+      const text = decodedMessage.slice(firstHyphen + 1, lastHyphen);
+      const lastSentId: number = Number(decodedMessage.slice(lastHyphen + 1));
+      let otherUsersMsgs: object[] = [];
       if (decodedMessage !== "[Neplatný formát]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
+        
         console.log(`💬 Nová zpráva od ${remoteAddr.hostname}: "${decodedMessage}"`);
-        const message: Message = {text: text, id: lastId, user: username};
-        if(!text.startsWith("ping")){
+        
+        const lastMsg = messages[messages.length - 1];
+        const isDuplicate = lastMsg && lastMsg.user === username && lastMsg.text === text && lastMsg.nonDupId === lastSentId;
+
+        if (isDuplicate) {
+          console.log(`Duplicated packet ignored (DNS Retry) od: ${username} ${text},`);
+
+        } else if(!text.startsWith("ping")){
+          const message: Message = {
+            text: text, 
+            id: lastId, 
+            user: username,
+            nonDupId: lastSentId
+          };
           messages.push(message);
+          lastId++;
         }
         
-        lastId++;
-        // Udržujeme jen posledních 10 zpráv
+        
+        // Maintain history size to 10 last messages
         if (messages.length > 10) messages.shift();
       
 
       
       
         messages.forEach(message => {
-            if(message.user != username){
-              print("Comparison:" +  message.user + username)
-              otherUsersMsgs.push(message);
-            }
+          if(message.user != username){
+            //print("Comparison:" +  message.user + username)
+            otherUsersMsgs.push(message);
+          }
         });
       }
 
@@ -203,7 +219,7 @@ async function handleServer() {
       await socket.send(responsePacket, remoteAddr);
       otherUsersMsgs = [];
     } catch (err) {
-      console.error("Chyba:", err);
+      console.error("Error: ", err);
     }
   }
 }
