@@ -2,7 +2,7 @@
 import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 const print = console.log;
-const domain = ".my.domain.com"
+const domain = ".chat.web.com"
 let local = true;
 let lastMsgId: number = 0;
 let username: string = "";

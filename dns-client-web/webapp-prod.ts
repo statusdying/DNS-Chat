@@ -1,9 +1,10 @@
 // client.ts
 import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
+import { config } from "./config.ts"
 const print = console.log;
-const domain = ".my.domain.com"
-let local = false;
+const domain = ".chat.web.com"
+let local = true;
 let lastMsgId: number = 0;
 let sendMsgIndex = 0;
 let username: string = ""

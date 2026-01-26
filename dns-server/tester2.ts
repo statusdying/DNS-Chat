@@ -5,5 +5,5 @@
 
 
 
-const txt = await Deno.resolveDns("7864652d61686f6a61686f6a.my.domain.com", "TXT");
+const txt = await Deno.resolveDns("yep.google.com", "TXT");
 console.log(txt);
