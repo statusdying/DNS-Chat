@@ -6,7 +6,7 @@ import { config } from "../config.ts"
 const print = console.log;
 const domain: string = config.dns_server_domain;
 const password: string = config.password;
-let loggins = false;
+let logging = false;
 let local = false;
 let lastMsgId: number = 0;
 let username: string = "";

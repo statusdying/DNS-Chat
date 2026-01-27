@@ -20,8 +20,9 @@ interface Message{
 
 const print = console.log;
 
-const PORT = 5300;
-const HOSTNAME = "0.0.0.0"
+const PORT:number = 5300;
+const HOSTNAME: string = "0.0.0.0";
+let logging: boolean = false;
 
 const messages: Message[] = [];
 let lastId:number = 1;
@@ -148,13 +149,18 @@ async function handleServer() {
     //print(data);
     try {
       const domain = parseDomainName(data, 12);
-      print(domain);
 
-      // Protokol: hexkod.chat.local
-      // První část domény je naše zpráva
+      
+
+      // Protocol: chat.domain.com
+      // The first domain label (on leftside) is our message
       const encodedMessages = domain.split(".").slice(0,-3);
-      print("firstLabel:",encodedMessages);
-      // Zkusíme dekódovat zprávu
+
+      if(logging == true){
+        print(domain);
+        print("firstLabel:",encodedMessages);
+      }
+      // Message needs to be decoded from hex encoding
       const incomingMsg:string = encodedMessages.join("");
       
       let decodedMessage:string;
@@ -177,14 +183,16 @@ async function handleServer() {
       let otherUsersMsgs: object[] = [];
       if (decodedMessage !== "[Neplatný formát]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
         
-        console.log(`💬 Nová zpráva od ${remoteAddr.hostname}: "${decodedMessage}"`);
+        print(`💬 New message from ${remoteAddr.hostname}: "${decodedMessage}"`);
         
         const lastMsg = messages[messages.length - 1];
         const isDuplicate = lastMsg && lastMsg.user === username && lastMsg.text === text && lastMsg.nonDupId === lastSentId;
 
         if (isDuplicate) {
-          console.log(`Duplicated packet ignored (DNS Retry) od: ${username} ${text},`);
 
+          if(logging == true){
+            print(`Duplicated packet ignored (DNS Retry) od: ${username} ${text},`);
+          }
         } else if(!text.startsWith("ping")){
           const message: Message = {
             text: text, 
@@ -196,12 +204,8 @@ async function handleServer() {
           lastId++;
         }
         
-        
         // Maintain history size to 10 last messages
         if (messages.length > 10) messages.shift();
-      
-
-      
       
         messages.forEach(message => {
           if(message.user != username){
@@ -211,10 +215,10 @@ async function handleServer() {
         });
       }
 
-      // Odpověď: Pošleme poslední zprávy jako JSON (aby to klient mohl parsovat)
-      // Protože TXT záznam má limit cca 255 znaků na string, musíme být struční.
-      const responseText = JSON.stringify(otherUsersMsgs.slice(-3)); // Pošleme jen poslední 3
-      print(responseText)
+      // Sending response as JSON
+      const responseText = JSON.stringify(otherUsersMsgs.slice(-3)); // Sending last 3 messages
+      if(logging == true) { print(responseText) }
+      
       const responsePacket = buildResponse(data, responseText);
       await socket.send(responsePacket, remoteAddr);
       otherUsersMsgs = [];
