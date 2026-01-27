@@ -26,7 +26,7 @@ const HOSTNAME = "0.0.0.0"
 const messages: Message[] = [];
 let lastId:number = 1;
 
-console.log(`📡 DNS Chat Server běží na portu ${PORT}`);
+console.log(`📡 DNS Chat running on port ${PORT}`);
 
 const socket = Deno.listenDatagram({ port: PORT, transport: "udp", hostname: HOSTNAME });
 

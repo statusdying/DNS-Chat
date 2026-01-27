@@ -1,10 +1,11 @@
 // client.ts
 import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
-import { config } from "./config.ts"
+import { config } from "../config.ts"
 const print = console.log;
-const domain = ".chat.web.com"
-let local = true;
+const domain = config.dns_server_domain;
+const password = config.password;
+let local = false;
 let lastMsgId: number = 0;
 let sendMsgIndex = 0;
 let username: string = ""
@@ -50,10 +51,9 @@ async function sendMessage(input:string){
     websocketAddr.send(JSON.stringify(allMessages)); 
     displayMessages(allMessages);
 
-    // 2. Zakódování
     let encodedHex:string = encodeMessage(messageToEncode);
 
-    // 2.5 Rozdělení po 63 znacích
+    // Split message by 63 characters
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
     if(encodedHexArray != null){
         encodedHex = encodedHexArray.join(".");    
@@ -122,45 +122,6 @@ function displayMessages(allMsgs: Message[]):void{
     print("-----------------------");
 }
 
-/*
-async function listenLoop() {
-    const decoder = new TextDecoder();
-    for await(const [data] of socket){
-        try{
-            const rawString = decoder.decode(data);
-            //looking for JSON in response
-            print("rawString:" + rawString)
-            const jsonStartIndex = rawString.indexOf("[{");
-            const jsonEndIndex = rawString.lastIndexOf("}]");
-            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-                const jsonStr = rawString.substring(jsonStartIndex, jsonEndIndex + 2);
-                const chatHistory: Message[] = JSON.parse(jsonStr);
-                chatHistory.forEach((msg: Message) =>{
-                    //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
-                    if(msg.id>lastMsgId){
-                        allMessages.push(msg);
-                        lastMsgId = msg.id;
-                    }
-                    
-                });
-                websocketAddr.send(JSON.stringify(allMessages));  
-                displayMessages(allMessages);
-            }
-        } catch(e){
-            print("Malformed packets " + e);
-        }
-    }    
-};
-*/
-
-
-function _usernamePrompt():string{
-    let usernameTmp;
-    while(usernameTmp == "" || usernameTmp == null){
-        usernameTmp = prompt("Username:");
-    }
-    return usernameTmp;
-}
 
 Deno.serve({
   port: 8081,
@@ -176,7 +137,7 @@ Deno.serve({
         
       // If the request is a normal HTTP request,
       // we serve the client HTML file.
-      const file = await Deno.open("./index-copy.html", { read: true });
+      const file = await Deno.open("./index.html", { read: true });
       return new Response(file.readable);
     }
     // If the request is a websocket upgrade,
@@ -189,10 +150,6 @@ Deno.serve({
     };
     socket.onmessage = (event) => {
       console.log("RECEIVED: "+ event.data + JSON.stringify(event.data));
-      //const usernameprefix: string = "username: ";
-      //if(event.data.startsWith(usernameprefix)){
-      //  username = event.data.substring(usernameprefix.length)
-      //}
 
       const parsedMsg = JSON.parse(event.data);
       const ownMsg: Message = {
@@ -201,11 +158,10 @@ Deno.serve({
         user: parsedMsg.user,
         nonDupId: parsedMsg.nonDupId
       };
-      //username = parsedMsg.user;
+
       sendMessage(ownMsg.text);
-      //allMessages.push(ownMsg);
       print("ALL MESSAGES: " + JSON.stringify(allMessages));    
-      //TODO move from onmessage to DNS Client Message Received
+      
       socket.send(JSON.stringify(allMessages));
     };
     socket.onclose = () => console.log("DISCONNECTED");
@@ -226,7 +182,6 @@ try {
     print("error opening a browser:" + e);
 }
 
-//username = usernamePrompt();
 
 setInterval(async() => {
     if(username == ""){
@@ -235,16 +190,12 @@ setInterval(async() => {
     await receiveMessages(username);    
 }, 5000);
 
-//listenLoop();
 const decoder = new TextDecoder();
 
 for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
-    //const userText = `${username}-${text}`
-    //print("sending text:",userText)
-    if(text == "exit"){
-        //socket.close();
+    if(text == "exit()"){
         break;
     }
 

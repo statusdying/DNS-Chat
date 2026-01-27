@@ -3,7 +3,7 @@
     "web": "deno run --allow-net --allow-read webapp.ts",
     "webws": "deno run --allow-net --allow-read webapp-ws.ts",
     "weball": "deno run --allow-net --unstable-net --allow-read webapp-all.ts",
-    "webprod": "deno run --allow-net --unstable-net --allow-read=index-copy.html --allow-run=explorer,open webapp-prod.ts"
+    "webprod": "deno run --allow-net --unstable-net --allow-read=index.html --allow-run=explorer,open webapp-prod.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1"
