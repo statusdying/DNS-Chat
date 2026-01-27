@@ -1,8 +1,0 @@
-{
-  "tasks": {
-    "webpub": "deno run --allow-net --unstable-net --allow-read webapp-all.ts"
-  },
-  "imports": {
-    "@std/assert": "jsr:@std/assert@1"
-  }
-}

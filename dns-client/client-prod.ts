@@ -1,9 +1,13 @@
 // client.ts
 import { encodeMessage } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
+import { config } from "../config.ts"
+
 const print = console.log;
-const domain = ".chat.web.com"
-let local = true;
+const domain: string = config.dns_server_domain;
+const password: string = config.password;
+let loggins = false;
+let local = false;
 let lastMsgId: number = 0;
 let username: string = "";
 let sendMsgIndex = 0;
@@ -24,8 +28,6 @@ function fixDnsEncoding(binaryString: string): string {
 }
 
 async function sendMessage(input:string){
-    // 1. Vstup od uživatele (zpráva)
-    //const input = prompt("Message: ");
     let myText:string = "empty message";
     if(input != null){
         myText = input;
@@ -45,18 +47,21 @@ async function sendMessage(input:string){
 
     sendMsgIndex++;
     if(sendMsgIndex > 10) sendMsgIndex = 0; 
-    // 2. Zakódování
+
     let encodedHex:string = encodeMessage(allTextToEncode);
 
-    // 2.5 Rozdělení po 63 znacích
+    // 2.5 Split message by 63 chars
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
     if(encodedHexArray != null){
         encodedHex = encodedHexArray.join(".");    
     }
     const dnsQuery = `${encodedHex}${domain}`;
 
-    console.log(`📝 Píšu zprávu: "${allTextToEncode}"`);
-    print("domain msg query:",dnsQuery);
+    if(local == true){
+        print(`📝 Sending message: "${allTextToEncode}"`);
+        print("domain msg query:",dnsQuery);
+    }
+
     displayMessages(allMessages); 
 
     try{
@@ -74,8 +79,11 @@ async function sendMessage(input:string){
 
 async function receiveMessages(username: string){ 
     const encodedHex:string = encodeMessage(`${username}-ping-${lastMsgId}`);
-    const dnsQuery = `${encodedHex}${domain}`; //
-    print("domain refresh query:",dnsQuery);
+    const dnsQuery = `${encodedHex}${domain}`; 
+
+    if(local == true){
+        print("domain refresh query:",dnsQuery);
+    }
 
     let responses: string[][];
     if(local == true){
@@ -86,7 +94,9 @@ async function receiveMessages(username: string){
     
 
     const rawString = responses.flat().join(""); 
-    print("DNS raw response:" + rawString);
+    if(local == true){
+        print("DNS raw response:" + rawString);
+    }
     const fixedString = fixDnsEncoding(rawString);
     const jsonStartIndex = fixedString.indexOf("[{");
     const jsonEndIndex = fixedString.lastIndexOf("}]");
@@ -115,7 +125,7 @@ function displayMessages(allMsgs: Message[]):void{
         }
     });
     print("-----------------------");
-}
+};
 
 function usernamePrompt():string{
     let usernameTmp;
@@ -123,23 +133,23 @@ function usernamePrompt():string{
         usernameTmp = prompt("Username:");
     }
     return usernameTmp;
-}
+};
 
 username = usernamePrompt();
+
+await receiveMessages(username);
 
 setInterval(async() => {
     await receiveMessages(username);    
 }, 5000);
 
-//listenLoop();
 const decoder = new TextDecoder();
 
 for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
     const userText = `${username}-${text}`
-    //print("sending text:",userText)
-    if(text == "exit"){
+    if(text == "exit()"){
         break;
     }
 
