@@ -25,6 +25,13 @@ export function decodeMessage(hex: string): string {
   return decoder.decode(bytes);
 }
 
+export interface Message{
+  text: string;
+  id: number;
+  user: string;
+  nonDupId: number;
+}
+
 // Otestování (jen pro debug, když to spustíš přímo)
 if (import.meta.main) {
   const original = "Ahoj světe! 🚀";
