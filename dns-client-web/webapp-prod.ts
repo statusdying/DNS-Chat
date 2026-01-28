@@ -5,7 +5,7 @@ import { config } from "../config.ts"
 const print = console.log;
 const domain = config.dns_server_domain;
 const password = config.password;
-let local = false;
+let local = true;
 let lastMsgId: number = 0;
 let sendMsgIndex = 0;
 let username: string = ""
@@ -27,7 +27,6 @@ function fixDnsEncoding(binaryString: string): string {
 
 async function sendMessage(input:string){
     // 1. Vstup od uživatele (zpráva)
-    //const input = prompt("Message: ");
     let nonNullText:string = "empty message";
     if(input != null){
         nonNullText = input;

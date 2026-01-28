@@ -7,7 +7,7 @@ const print = console.log;
 const domain: string = config.dns_server_domain;
 const password: string = config.password;
 let logging = false;
-let local = false;
+let local = true;
 let lastMsgId: number = 0;
 let username: string = "";
 let sendMsgIndex = 0;
@@ -57,7 +57,7 @@ async function sendMessage(input:string){
     }
     const dnsQuery = `${encodedHex}${domain}`;
 
-    if(local == true){
+    if(logging == true){
         print(`📝 Sending message: "${allTextToEncode}"`);
         print("domain msg query:",dnsQuery);
     }
@@ -81,7 +81,7 @@ async function receiveMessages(username: string){
     const encodedHex:string = encodeMessage(`${username}-ping-${lastMsgId}`);
     const dnsQuery = `${encodedHex}${domain}`; 
 
-    if(local == true){
+    if(logging == true){
         print("domain refresh query:",dnsQuery);
     }
 
@@ -94,7 +94,7 @@ async function receiveMessages(username: string){
     
 
     const rawString = responses.flat().join(""); 
-    if(local == true){
+    if(logging == true){
         print("DNS raw response:" + rawString);
     }
     const fixedString = fixDnsEncoding(rawString);
