@@ -45,34 +45,34 @@ function parseDomainName(buffer: Uint8Array, offset: number): string {
 }
 
 function buildResponse(req: Uint8Array, txt: string): Uint8Array {
-    // 1. Najdi konec sekce Question (stejné jako u vás)
+    // 1. Find the end of Question part
     let qEnd = 12;
     while (req[qEnd] !== 0) qEnd++;
     qEnd += 5; // null byte + type(2) + class(2)
 
-    // Připravíme buffer (zvětšil jsem na 1024 pro jistotu, ale pozor na UDP limit ~1232B, bezpečné je 512)
+    // Prepare the buffer (now it is set for 1024 bytes, but UDP limit is around 1232 bytes, 512 bytes is a safe spot)
     const res = new Uint8Array(1024);
     const v = new DataView(res.buffer);
 
-    // 2. Zkopírujeme hlavičku a Question z dotazu
+    // 2. Copy headers and Question from request
     res.set(req.subarray(0, qEnd), 0);
 
-    // 3. Upravíme hlavičku (Flags)
+    // 3. Edit headers (Flags)
     let f = v.getUint16(2);
     f |= 0x8400; // QR (Response) = 1, AA (Authoritative) = 1
     f &= ~0x000F; // RCODE = 0 (No Error)
-    // Zachováme RD bit z requestu (pokud tam byl), i když my rekursi neděláme
+    // Keeping RD bit from request
     v.setUint16(2, f);
 
     v.setUint16(4, 1); // QDCOUNT = 1
-    v.setUint16(6, 1); // ANCOUNT = 1 (Odpověď)
+    v.setUint16(6, 1); // ANCOUNT = 1 (Answser)
     v.setUint16(8, 0); // NSCOUNT = 0
     v.setUint16(10, 0); // ARCOUNT = 0
 
-    // 4. Začátek sekce Answer
+    // 4. start of Answer part
     let off = qEnd;
     
-    // NAME: Použijeme pointer na začátek (0xC00C -> offset 12)
+    // NAME: Settting pointer at the start (0xC00C -> offset 12)
     v.setUint16(off, 0xC00C); off += 2;
     
     // TYPE: TXT (16)
@@ -81,36 +81,36 @@ function buildResponse(req: Uint8Array, txt: string): Uint8Array {
     // CLASS: IN (1)
     v.setUint16(off, 1); off += 2;
     
-    // TTL: 0 (velmi důležité pro chat, aby se necacheovalo!)
+    // TTL: 0 (Time to Live 0 secons - really important to not cache server responses)
     v.setUint32(off, 0); off += 4;
 
-    // 5. Příprava dat (TXT RDATA)
+    // 5. Preparing data (TXT RDATA)
     const tb = new TextEncoder().encode(txt);
     
-    // Musíme spočítat celkovou délku RDATA (všechny chunky + jejich length byty)
-    // Pokud má text 300 znaků:
-    // Chunk 1: 255 znaků + 1 byte délky
-    // Chunk 2: 45 znaků + 1 byte délky
+    // Total length of response must be calculated - RDATA (all chunks + thier bytes length)
+    // If the response text has 300 znaků:
+    // Chunk 1: 255 characters + 1 byte of length
+    // Chunk 2: 45 characters + 1 byte of length
     // RDLENGTH = 255 + 1 + 45 + 1 = 302
     
     let totalRDataLen = 0;
     let remaining = tb.length;
     let chunks = 0;
     
-    // Rychlý výpočet délky před zápisem
+    // Length calculation
     while(remaining > 0) {
         const chunkSize = Math.min(255, remaining);
         totalRDataLen += (chunkSize + 1);
         remaining -= chunkSize;
         chunks++;
     }
-    // Pokud je string prázdný, TXT musí mít alespoň jeden byte 0
+    // If the string is empty, TXT must have at least one byte - 0
     if (tb.length === 0) totalRDataLen = 1;
 
-    // Zápis RDLENGTH
+    // setting RDLENGTH
     v.setUint16(off, totalRDataLen); off += 2;
 
-    // 6. Zápis samotných chunků
+    // 6. Setting chunks
     let writeOffset = 0;
     remaining = tb.length;
 
@@ -120,10 +120,10 @@ function buildResponse(req: Uint8Array, txt: string): Uint8Array {
         while (remaining > 0) {
             const chunkSize = Math.min(255, remaining);
             
-            // Délka chunku (1 byte)
+            // Chunks length (1 byte)
             res[off] = chunkSize; off++;
             
-            // Data chunku
+            // Chunks data
             res.set(tb.subarray(writeOffset, writeOffset + chunkSize), off);
             
             off += chunkSize;
@@ -132,7 +132,7 @@ function buildResponse(req: Uint8Array, txt: string): Uint8Array {
         }
     }
 
-    // Vrátíme oříznuté pole přesně podle délky
+    // Return of cut array by length
     return res.subarray(0, off);
 }
 
@@ -167,12 +167,12 @@ async function handleServer() {
       try {
           decodedMessage = decodeMessage(incomingMsg)
       } catch {
-          // Pokud to není hex, asi je to jen nějaký ping nebo bordel
-          decodedMessage = "[Neplatný formát]";
+          // If it's not hex, it is some random stuff
+          decodedMessage = "[Invalid format]";
       }
 
       if(!isCorrectFormat(decodedMessage)){
-        decodedMessage = "[Neplatný formát]";
+        decodedMessage = "[Invalid format]";
       }
 
       const firstHyphen: number = decodedMessage.indexOf('-');
@@ -181,7 +181,7 @@ async function handleServer() {
       const text = decodedMessage.slice(firstHyphen + 1, lastHyphen);
       const lastSentId: number = Number(decodedMessage.slice(lastHyphen + 1));
       let otherUsersMsgs: object[] = [];
-      if (decodedMessage !== "[Neplatný formát]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
+      if (decodedMessage !== "[Invalid format]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
         
         print(`💬 New message from ${remoteAddr.hostname}: "${decodedMessage}"`);
         
