@@ -1,5 +1,5 @@
 // client.ts
-import { encodeMessage } from "../dns-server/protocol.ts";
+import { encodeMessage, EncodeByBase36 } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
 const print = console.log;
@@ -50,7 +50,7 @@ async function sendMessage(input:string){
     websocketAddr.send(JSON.stringify(allMessages)); 
     displayMessages(allMessages);
 
-    let encodedHex:string = encodeMessage(messageToEncode);
+    let encodedHex:string = EncodeByBase36(messageToEncode);
 
     // Split message by 63 characters
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
@@ -74,7 +74,7 @@ async function sendMessage(input:string){
 };
 
 async function receiveMessages(username: string){
-    const encodedHex:string = encodeMessage(`${username}-ping-${lastMsgId}`);
+    const encodedHex:string = EncodeByBase36(`${username}-ping-${lastMsgId}`);
     const dnsQuery = `${encodedHex}${domain}`; //
     print("domain refresh query:",dnsQuery);
 

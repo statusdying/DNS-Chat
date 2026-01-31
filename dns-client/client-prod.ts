@@ -1,5 +1,5 @@
 // client.ts
-import { encodeMessage } from "../dns-server/protocol.ts";
+import { encodeMessage, EncodeByBase36 } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
 
@@ -48,7 +48,7 @@ async function sendMessage(input:string){
     sendMsgIndex++;
     if(sendMsgIndex > 10) sendMsgIndex = 0; 
 
-    let encodedHex:string = encodeMessage(allTextToEncode);
+    let encodedHex:string = EncodeByBase36(allTextToEncode);
 
     // 2.5 Split message by 63 chars
     const encodedHexArray = encodedHex.match(/.{1,63}/g);
@@ -78,7 +78,7 @@ async function sendMessage(input:string){
 };
 
 async function receiveMessages(username: string){ 
-    const encodedHex:string = encodeMessage(`${username}-ping-${lastMsgId}`);
+    const encodedHex:string = EncodeByBase36(`${username}-ping-${lastMsgId}`);
     const dnsQuery = `${encodedHex}${domain}`; 
 
     if(logging == true){

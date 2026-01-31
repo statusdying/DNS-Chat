@@ -1,4 +1,6 @@
 // server.ts
+import { DecodeByBase36 } from "./protocol.ts";
+
 function decodeMessage(hex: string): string {
   const cleanHex = hex.replace(/\./g, "");
   
@@ -25,6 +27,7 @@ const HOSTNAME: string = "0.0.0.0";
 let logging: boolean = false;
 
 const messages: Message[] = [];
+const unfinishedMessages: Message[] = [];
 let lastId:number = 1;
 
 console.log(`📡 DNS Chat running on port ${PORT}`);
@@ -165,7 +168,7 @@ async function handleServer() {
       
       let decodedMessage:string;
       try {
-          decodedMessage = decodeMessage(incomingMsg)
+          decodedMessage = DecodeByBase36(incomingMsg)
       } catch {
           // If it's not hex, it is some random stuff
           decodedMessage = "[Invalid format]";
