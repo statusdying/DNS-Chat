@@ -143,6 +143,87 @@
         #send-btn:hover {
             background-color: #0073e6;
         }
+
+        /* --- VLASTNÍ EMOJI PICKER (S KATEGORIEMI) --- */
+        .emoji-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .emoji-picker-container {
+            display: none;
+            position: absolute;
+            /* "bottom: 100%" places it exactly on top of the button */
+            bottom: 140%; 
+            /* "right: 0" aligns the right edge of picker with right edge of wrapper (button) */
+            right: 0; 
+            
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 300px;
+            height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 100;
+            padding: 10px;
+        }
+
+        .emoji-picker-container.visible {
+            display: block;
+        }
+
+        /* Category Title Style */
+        .emoji-category-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+            margin: 10px 0 5px 0;
+            padding-left: 2px;
+        }
+
+        /* First title shouldn't have top margin */
+        .emoji-category-title:first-child {
+            margin-top: 0;
+        }
+
+        /* The Grid for buttons inside a category */
+        .emoji-category-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr); /* 7 emojis per row */
+            gap: 2px;
+        }
+
+        .emoji-btn {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .emoji-btn:hover {
+            background-color: #e4e6eb;
+        }
+
+        #emoji-trigger-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            margin: 0 5px; /* Spacing between input and send button */
+            filter: grayscale(100%);
+            transition: 0.2s;
+        }
+
+        #emoji-trigger-btn:hover {
+            filter: grayscale(0%);
+            transform: scale(1.1);
+        }
     </style>
 </head>
 <body>
@@ -155,11 +236,16 @@
 
         <div id="chat-window">
             
-            <div style="text-align:center; color:#ccc; margin-top: 20px;">Loading DNS data...</div>
+            <div style="text-align:center; color:#ccc; margin-top: 20px;">Waiting for Messages...</div>
         </div>
 
         <div class="input-area">
             <input type="text" id="msg-input" placeholder="Napiš zprávu..." autocomplete="off">
+            <div class="emoji-wrapper">
+                    <div id="emoji-picker" class="emoji-picker-container"></div>
+                    
+                    <button id="emoji-trigger-btn" onclick="toggleEmojiPicker()">😀</button>
+            </div>
             <button id="send-btn" onclick="handleSend()">Send</button>
         </div>
     </div>
@@ -283,6 +369,75 @@
                 ; // ${time}
             }).join('');
         }
+        // --- EMOJI LOGIKA S KATEGORIEMI ---
+
+        // 2D Array: [ "Název kategorie", "emoji1", "emoji2", ... ]
+        const emojiCategories = [
+            ["Obličeje", "😀", "😂", "🤣", "😊", "😍", "🥰", "😎", "😭", "😡", "🤔", "👀", "😉", "😋"],
+            ["Gesta", "👍", "👎", "👋", "🙏", "💪", "🤘", "👌", "🤝", "🙌", "🤙", "👊"],
+            ["Srdce & Symboly", "❤️", "💔", "💙", "🔥", "✨", "✅", "❌", "💯", "⚠️", "⛔", "🎉"],
+            ["Zvířata & Příroda", "🐶", "🐱", "🐭", "🐸", "🙈", "🌹", "🌻", "🌲", "☀️", "🌧️", "🌈"]
+        ];
+
+        const emojiPicker = document.getElementById('emoji-picker');
+        const emojiTrigger = document.getElementById('emoji-trigger-btn');
+
+        function initEmojiPicker() {
+            // Vyčistit (pro jistotu)
+            emojiPicker.innerHTML = "";
+
+            emojiCategories.forEach(category => {
+                // 1. Získat název a emoji
+                const categoryName = category[0];
+                const emojis = category.slice(1); // Vše od indexu 1 do konce
+
+                // 2. Vytvořit nadpis kategorie
+                const title = document.createElement('div');
+                title.className = 'emoji-category-title';
+                title.innerText = categoryName;
+                emojiPicker.appendChild(title);
+
+                // 3. Vytvořit mřížku (container) pro tuto kategorii
+                const grid = document.createElement('div');
+                grid.className = 'emoji-category-grid';
+
+                // 4. Naplnit mřížku tlačítky
+                emojis.forEach(emoji => {
+                    const btn = document.createElement('button');
+                    btn.innerText = emoji;
+                    btn.className = 'emoji-btn';
+                    
+                    btn.onclick = () => {
+                        inputField.value += emoji;
+                        inputField.focus();
+                    };
+                    
+                    grid.appendChild(btn);
+                });
+
+                // Přidat mřížku do hlavního okna
+                emojiPicker.appendChild(grid);
+            });
+        }
+
+        function toggleEmojiPicker() {
+            emojiPicker.classList.toggle('visible');
+        }
+
+        // Zavření při kliknutí vedle
+        document.addEventListener('click', (e) => {
+            if (!emojiPicker.contains(e.target) && !emojiTrigger.contains(e.target)) {
+                emojiPicker.classList.remove('visible');
+            }
+        });
+
+        initEmojiPicker();
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                emojiPicker.classList.remove('visible');
+            }
+        });
     </script>
 </body>
 </html>
