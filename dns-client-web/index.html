@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DNS Messenger</title>
     <style>
-        /* --- ZÁKLADNÍ RESET A PÍSMO --- */
+        /* --- BASE --- */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f0f2f5;
@@ -15,7 +15,7 @@
             height: 100vh;
         }
 
-        /* --- HLAVNÍ KONTEJNER (MOBILNÍ VZHLED) --- */
+        /* --- MAIN CONTAINER --- */
         .app-container {
             width: 100%;
             max-width: 600px;
@@ -26,7 +26,7 @@
             height: 100%;
         }
 
-        /* --- HLAVIČKA --- */
+        /* --- HEADER --- */
         header {
             padding: 15px;
             border-bottom: 1px solid #ddd;
@@ -44,13 +44,13 @@
         .status-dot {
             height: 10px;
             width: 10px;
-            background-color: #31a24c; /* Online zelená */
+            background-color: #31a24c; /* Online green */
             border-radius: 50%;
             display: inline-block;
             margin-right: 10px;
         }
 
-        /* --- OBLAST ZPRÁV --- */
+        /* --- MESSAGE AREA --- */
         #chat-window {
             flex: 1;
             padding: 20px;
@@ -61,7 +61,7 @@
             background-color: white;
         }
 
-        /* --- STYLY PRO ZPRÁVY (FLEXBOX MAGIC) --- */
+        /* --- Styles for messages (FLEXBOX MAGIC) --- */
         .message-row {
             display: flex;
             width: 100%;
@@ -83,28 +83,28 @@
             opacity: 0.7;
         }
 
-        /* --- "MOJE" ZPRÁVY (Tady definujeme stranu) --- */
-        /* Podle tvého zadání: JÁ = VLEVO */
+        /* --- "USER" MESSAGES --- */
+        /* USER = LEFT */
         .message-row.me {
-            justify-content: flex-start; /* Zarovnat doleva */
+            justify-content: flex-start; /* align left */
         }
         .message-row.me .bubble {
-            background-color: #e4e6eb; /* Šedá (jako příchozí v Messengeru) */
+            background-color: #e4e6eb; /* Gray */
             color: black;
             border-radius: 18px;
-            border-bottom-left-radius: 4px; /* Ostrý roh vlevo dole */
+            border-bottom-left-radius: 4px; /* Sharp corner on left down */
         }
 
-        /* --- "OSTATNÍ" ZPRÁVY --- */
-        /* Podle tvého zadání: OSTATNÍ = VPRAVO */
+        /* --- "OTHER" MESSAGES --- */
+        /* OTHERS = RIGHT*/
         .message-row.other {
-            justify-content: flex-end; /* Zarovnat doprava */
+            justify-content: flex-end; /* align right */
         }
         .message-row.other .bubble {
-            background-color: #c0e7b2; /* Messenger Modrá #0084ff */
+            background-color: #c0e7b2; /* Messenger Blue #0084ff */
             color: black;
             border-radius: 18px;
-            border-bottom-right-radius: 4px; /* Ostrý roh vpravo dole */
+            border-bottom-right-radius: 4px; /* Sharp corner on right down */
         }
         .message-row.other .meta {
             text-align: left;
@@ -115,13 +115,13 @@
             padding: 15px;
             border-top: 1px solid #ddd;
             background: #f0f2f5;
-            display: flex; /* Změna na flexbox */
+            display: flex; /* Change to flexbox */
             gap: 10px;
             align-items: center;
         }
 
         #msg-input {
-            flex: 1; /* Roztáhne se na zbytek místa */
+            flex: 1; /* a */
             padding: 10px 15px;
             border-radius: 20px;
             border: 1px solid #ddd;
@@ -144,7 +144,7 @@
             background-color: #0073e6;
         }
 
-        /* --- VLASTNÍ EMOJI PICKER (S KATEGORIEMI) --- */
+        /* --- EMOJI PICKER (WITH CATEGORIES) --- */
         .emoji-wrapper {
             position: relative;
             display: flex;
@@ -251,7 +251,7 @@
     </div>
 
     <script>
-        // --- 3. KLIENTSKÁ LOGIKA ---
+        // --- 3. CLIENT LOGIC ---
         //websocket setup
         const wsUri = "ws://127.0.0.1:8081/";
         
@@ -332,12 +332,12 @@
 
         async function fetchMessages(messages) {
             try {
-                // Překreslit jen pokud máme novou zprávu (jednoduchá optimalizace)
+                // Rendering messages only if a new message is found (simple optimalization)
                 if (true) { //messages.length !== lastMessageCount
                     renderMessages(messages);
                     lastMessageCount = messages.length;
                     
-                    // Auto-scroll dolů
+                    // Auto-scroll down
                     chatWindow.scrollTop = chatWindow.scrollHeight;
                 }
             } catch (err) {
@@ -357,7 +357,7 @@
                 const cssClass = isMe ? 'me' : 'other';
                 const tag = isMe ? 'You' : 'Others';
                 
-                // Formátování času
+                // Time formatting - not used rn
                 const time = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                 return (`<div class="message-row ${cssClass}">
@@ -369,39 +369,36 @@
                 ; // ${time}
             }).join('');
         }
-        // --- EMOJI LOGIKA S KATEGORIEMI ---
+        // --- EMOJI LOGIC WITH CATEGORIES ---
 
-        // 2D Array: [ "Název kategorie", "emoji1", "emoji2", ... ]
+        // 2D Array: [ "Category Name", "emoji1", "emoji2", ... ]
         const emojiCategories = [
-            ["Obličeje", "😀", "😂", "🤣", "😊", "😍", "🥰", "😎", "😭", "😡", "🤔", "👀", "😉", "😋"],
-            ["Gesta", "👍", "👎", "👋", "🙏", "💪", "🤘", "👌", "🤝", "🙌", "🤙", "👊"],
-            ["Srdce & Symboly", "❤️", "💔", "💙", "🔥", "✨", "✅", "❌", "💯", "⚠️", "⛔", "🎉"],
-            ["Zvířata & Příroda", "🐶", "🐱", "🐭", "🐸", "🙈", "🌹", "🌻", "🌲", "☀️", "🌧️", "🌈"]
+            ["Faces", "😀", "😂", "🤣", "😊", "😍", "🥰", "😎", "😭", "😡", "🤔", "👀", "😉", "😋"],
+            ["Gestures", "👍", "👎", "👋", "🙏", "💪", "🤘", "👌", "🤝", "🙌", "🤙", "👊"],
+            ["Hearts & Symbols", "❤️", "💔", "💙", "🔥", "✨", "✅", "❌", "💯", "⚠️", "⛔", "🎉"],  
+            ["Animals & Nature", "🐶", "🐱", "🐭", "🐸", "🙈", "🌹", "🌻", "🌲", "☀️", "🌧️", "🌈"]
         ];
 
         const emojiPicker = document.getElementById('emoji-picker');
         const emojiTrigger = document.getElementById('emoji-trigger-btn');
 
         function initEmojiPicker() {
-            // Vyčistit (pro jistotu)
+            // Clean up
             emojiPicker.innerHTML = "";
 
             emojiCategories.forEach(category => {
-                // 1. Získat název a emoji
+                
                 const categoryName = category[0];
-                const emojis = category.slice(1); // Vše od indexu 1 do konce
+                const emojis = category.slice(1); 
 
-                // 2. Vytvořit nadpis kategorie
                 const title = document.createElement('div');
                 title.className = 'emoji-category-title';
                 title.innerText = categoryName;
                 emojiPicker.appendChild(title);
 
-                // 3. Vytvořit mřížku (container) pro tuto kategorii
                 const grid = document.createElement('div');
                 grid.className = 'emoji-category-grid';
 
-                // 4. Naplnit mřížku tlačítky
                 emojis.forEach(emoji => {
                     const btn = document.createElement('button');
                     btn.innerText = emoji;
@@ -415,7 +412,6 @@
                     grid.appendChild(btn);
                 });
 
-                // Přidat mřížku do hlavního okna
                 emojiPicker.appendChild(grid);
             });
         }
@@ -424,7 +420,7 @@
             emojiPicker.classList.toggle('visible');
         }
 
-        // Zavření při kliknutí vedle
+        // Closing Emoji Picker when clicking outside
         document.addEventListener('click', (e) => {
             if (!emojiPicker.contains(e.target) && !emojiTrigger.contains(e.target)) {
                 emojiPicker.classList.remove('visible');
@@ -433,6 +429,7 @@
 
         initEmojiPicker();
         
+        // Closing Emoji Picker when clicking ESC
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 emojiPicker.classList.remove('visible');
