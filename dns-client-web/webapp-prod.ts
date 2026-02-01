@@ -110,6 +110,7 @@ async function receiveMessages(username: string){
 };
 
 function displayMessages(allMsgs: Message[]):void{
+    print("\x1Bc"); // clears console
     print("\n📬 --- CHAT HISTORY ---");
     allMsgs.forEach(msg => {
         if(msg.user !== username){

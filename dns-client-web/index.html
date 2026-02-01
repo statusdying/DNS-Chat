@@ -155,12 +155,12 @@
 
         <div id="chat-window">
             
-            <div style="text-align:center; color:#ccc; margin-top: 20px;">Načítám DNS data...</div>
+            <div style="text-align:center; color:#ccc; margin-top: 20px;">Loading DNS data...</div>
         </div>
 
         <div class="input-area">
             <input type="text" id="msg-input" placeholder="Napiš zprávu..." autocomplete="off">
-            <button id="send-btn" onclick="handleSend()">Odeslat</button>
+            <button id="send-btn" onclick="handleSend()">Send</button>
         </div>
     </div>
 
@@ -269,13 +269,14 @@
                 }
 
                 const cssClass = isMe ? 'me' : 'other';
+                const tag = isMe ? 'You' : 'Others';
                 
                 // Formátování času
                 const time = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                 return (`<div class="message-row ${cssClass}">
                         <div class="bubble">
-                            <span class="meta">${msg.user} • </span> 
+                            <span class="meta">${msg.user} • ${tag}</span> 
                             ${msg.text}
                         </div>
                     </div>`)

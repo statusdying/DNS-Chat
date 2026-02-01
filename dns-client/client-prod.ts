@@ -107,15 +107,17 @@ async function receiveMessages(username: string){
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
             if(msg.id>lastMsgId){
                 allMessages.push(msg);
+                displayMessages(allMessages);
                 lastMsgId = msg.id;
             }
             
         });
-        displayMessages(allMessages);
+        
     }
 };
 
 function displayMessages(allMsgs: Message[]):void{
+    print("\x1Bc"); // clears console
     print("\n📬 --- CHAT HISTORY ---");
     allMsgs.forEach(msg => {
         if(msg.user !== username){

@@ -183,13 +183,14 @@ async function handleServer() {
       const username = decodedMessage.slice(0, firstHyphen);
       const text = decodedMessage.slice(firstHyphen + 1, lastHyphen);
       const lastSentId: number = Number(decodedMessage.slice(lastHyphen + 1));
-      let otherUsersMsgs: object[] = [];
+      let otherUsersMsgs: Message[] = [];
       if (decodedMessage !== "[Invalid format]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
         
         print(`💬 New message from ${remoteAddr.hostname}: "${decodedMessage}"`);
         
-        const lastMsg = messages[messages.length - 1];
-        const isDuplicate = lastMsg && lastMsg.user === username && lastMsg.text === text && lastMsg.nonDupId === lastSentId;
+        //const lastMsg = messages[messages.length - 1];
+        //const isDuplicate = lastMsg && lastMsg.user === username && lastMsg.text === text && lastMsg.nonDupId === lastSentId;
+        const isDuplicate = messages.some((msg: Message) => msg.user === username && msg.nonDupId === lastSentId);
 
         if (isDuplicate) {
 
@@ -210,12 +211,13 @@ async function handleServer() {
         // Maintain history size to 10 last messages
         if (messages.length > 10) messages.shift();
       
-        messages.forEach(message => {
-          if(message.user != username){
-            //print("Comparison:" +  message.user + username)
-            otherUsersMsgs.push(message);
-          }
-        });
+        //messages.forEach(message => {
+        //  if(message.user != username){
+        //    //print("Comparison:" +  message.user + username)
+        //    otherUsersMsgs.push(message);
+        //  }
+        //});
+        otherUsersMsgs = messages.filter((msg)=> msg.user !== username);
       }
 
       // Sending response as JSON
