@@ -2,7 +2,7 @@ import { config } from "./config-example.ts";
 import { encodeMessage, Message } from "./dns-server/protocol.ts";
 
 const msg: Message = { 
-  user:"User0", 
+  user: "User0", 
   text: "Hello How are you?",
   id: 0,
   nonDupId: 0  
@@ -213,7 +213,7 @@ export async function encodeAndEncrypt(msg: Message, key: CryptoKey){
   let result = new Uint8Array(totalLength);
   result.set(usernamePart, 0);
   result.set(encryptText, usernamePart.length);
-  result.set(nonDupIdPart, encryptText.length);
+  result.set(nonDupIdPart, usernamePart.length + encryptText.length);
   console.log(result);
 
   const encodedString =  EncodeByBase36(result); 
@@ -224,7 +224,7 @@ export async function encodeAndEncrypt(msg: Message, key: CryptoKey){
 
 
 
-export function decodeAndDecrypt(encodedString: string, key: CryptoKey){
+export async function decodeAndDecrypt(encodedString: string, key: CryptoKey){
   let textDecoder = new TextDecoder();
   let textEncoder = new TextEncoder();
   const decodedMsg: Uint8Array = DecodeByBase36(encodedString);
@@ -236,13 +236,13 @@ export function decodeAndDecrypt(encodedString: string, key: CryptoKey){
   const textPart = decodedMsg.slice(firstHyphenIndex + 1,lastHyphenIndex);
   const nonDupIdPart = textDecoder.decode(decodedMsg.slice(lastHyphenIndex + 1));
   console.log(userPart, textPart, nonDupIdPart);
-  const decryptText = decryptMessage(textPart, key);
-  console.log(userPart, decryptText, nonDupIdPart);
+  const decryptText = await decryptMessage(textPart, key);
+  console.log(userPart + "-" + decryptText + "-" + nonDupIdPart);
 
   
   // decryptMessage(encodedString, key);
 
 }
 
-let x = encodeAndEncrypt(msg, key);
-let y = decodeAndDecrypt(x, key);
+let x = await encodeAndEncrypt(msg, key);
+let y = await decodeAndDecrypt(x, key);
