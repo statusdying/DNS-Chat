@@ -201,7 +201,7 @@ console.log("Encoded 11", decod22)
 console.log("Decrypted 11:", decr21);
 console.log("Decrypted 11:", decr22);
 
-export async function encodeAndEncrypt(msg: Message, key: CryptoKey){
+export async function encodeAndEncryptClient(msg: Message, key: CryptoKey){
   const encryptText = await encryptMessage(msg.text, key);
   console.log(encryptText, encryptText.length);
 
@@ -224,7 +224,7 @@ export async function encodeAndEncrypt(msg: Message, key: CryptoKey){
 
 
 
-export async function decodeAndDecrypt(encodedString: string, key: CryptoKey){
+export async function decodeAndDecryptServer(encodedString: string, key: CryptoKey){
   let textDecoder = new TextDecoder();
   let textEncoder = new TextEncoder();
   const decodedMsg: Uint8Array = DecodeByBase36(encodedString);
@@ -238,11 +238,7 @@ export async function decodeAndDecrypt(encodedString: string, key: CryptoKey){
   console.log(userPart, textPart, nonDupIdPart);
   const decryptText = await decryptMessage(textPart, key);
   console.log(userPart + "-" + decryptText + "-" + nonDupIdPart);
-
-  
-  // decryptMessage(encodedString, key);
-
 }
 
-let x = await encodeAndEncrypt(msg, key);
-let y = await decodeAndDecrypt(x, key);
+let x = await encodeAndEncryptClient(msg, key);
+let y = await decodeAndDecryptServer(x, key);
