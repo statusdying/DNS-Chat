@@ -8,6 +8,13 @@ const msg: Message = {
   nonDupId: 0  
 }
 
+const encryptMsg: Message = {
+  user: "User1",
+  text: "kF94YCU0EQ8+3TS7TiFqK9ctBuAeQ3DcIxHSoRsRGX8=",
+  id: 0,
+  nonDupId: 0
+}
+
 
 // 1. Your shared human-readable password
 const password = "my-super-secret-password";
@@ -201,10 +208,12 @@ console.log("Encoded 11", decod22)
 console.log("Decrypted 11:", decr21);
 console.log("Decrypted 11:", decr22);
 
+let test_encrypt_bytes:Uint8Array = new Uint8Array();
+
 export async function encodeAndEncryptClient(msg: Message, key: CryptoKey){
   const encryptText = await encryptMessage(msg.text, key);
-  console.log(encryptText, encryptText.length);
-
+  console.log(encryptText, encryptText.length, encryptText.toBase64());
+  test_encrypt_bytes = encryptText;
   const textEncoder = new TextEncoder();
   const usernamePart = textEncoder.encode(msg.user + "-");
   const nonDupIdPart = textEncoder.encode("-" + msg.nonDupId);
@@ -242,3 +251,24 @@ export async function decodeAndDecryptServer(encodedString: string, key: CryptoK
 
 let x = await encodeAndEncryptClient(msg, key);
 let y = await decodeAndDecryptServer(x, key);
+
+console.log("test bytes:", test_encrypt_bytes);
+
+const data = new Uint8Array([72, 101, 108, 108, 111]); // "Hello"
+const encoded = data.toBase64();
+const decoded = Uint8Array.fromBase64(encoded);
+console.log(encoded, decoded);
+
+//let stringed = test_encrypt_bytes.toBase64()
+
+
+export async function decryptClient(message:Message, key: CryptoKey) {
+  let encryptBytes = Uint8Array.fromBase64(message.text); //msg.text;
+  let decryptedText = await decryptMessage(encryptBytes,key);
+  console.log(decryptedText);
+  message.text = decryptedText;
+  return message;
+}
+
+let decryptMsg = await decryptClient(encryptMsg, key);
+console.log(decryptMsg);
