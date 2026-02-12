@@ -272,3 +272,21 @@ export async function decryptClient(message:Message, key: CryptoKey) {
 
 let decryptMsg = await decryptClient(encryptMsg, key);
 console.log(decryptMsg);
+
+export async function decodeAndNotDecryptServer(encodedString: string) {
+  let textDecoder = new TextDecoder();
+  let textEncoder = new TextEncoder();
+  const decodedMsg: Uint8Array = DecodeByBase36(encodedString);
+
+  let hyphenUint8 = textEncoder.encode("-");
+  let firstHyphenIndex = decodedMsg.indexOf(hyphenUint8[0]);
+  let lastHyphenIndex = decodedMsg.lastIndexOf(hyphenUint8[0]);
+  const userPart = textDecoder.decode(decodedMsg.slice(0,firstHyphenIndex));
+  const textPart = decodedMsg.slice(firstHyphenIndex + 1,lastHyphenIndex);
+  const nonDupIdPart = textDecoder.decode(decodedMsg.slice(lastHyphenIndex + 1));
+  console.log("raw:", userPart, textPart.toBase64(), nonDupIdPart);
+  //const decryptText = await decryptMessage(textPart, key);
+  //console.log(userPart + "-" + decryptText + "-" + nonDupIdPart);
+}
+
+let o = decodeAndNotDecryptServer(x);
