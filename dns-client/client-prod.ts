@@ -1,5 +1,6 @@
 // client.ts
-import { encodeMessage, EncodeByBase36 } from "../dns-server/protocol.ts";
+import { encodeMessage, EncodeByBase36, encodeAndEncryptClient, decryptClient } from "../dns-server/protocol.ts";
+import { encryptMessage, deriveKeyFromPassword } from "../dns-server/protocol.ts"
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
 
@@ -7,6 +8,7 @@ const print = console.log;
 const domain: string = config.dns_server_domain;
 const password: string = config.password;
 const salt = new TextEncoder().encode(config.salt); 
+const STATIC_IV = new Uint8Array(16);
 let logging = true;
 let local = true;
 let lastMsgId: number = 0;
@@ -43,7 +45,8 @@ async function sendMessage(input:string){
 
     allMessages.push(sendMsg);
 
-   
+    let encodedMsgString  = await encodeAndEncryptClient(sendMsg, key, STATIC_IV);
+    
     const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
 
     sendMsgIndex++;
@@ -56,7 +59,7 @@ async function sendMessage(input:string){
     if(encodedHexArray != null){
         encodedHex = encodedHexArray.join(".");    
     }
-    const dnsQuery = `${encodedHex}${domain}`;
+    const dnsQuery = `${encodedMsgString}${domain}`;
 
     if(logging == true){
         print(`📝 Sending message: "${allTextToEncode}"`);
@@ -104,9 +107,11 @@ async function receiveMessages(username: string){
     if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
         const jsonStr = fixedString.substring(jsonStartIndex, jsonEndIndex + 2);
         const chatHistory: Message[] = JSON.parse(jsonStr);
-        chatHistory.forEach((msg: Message) =>{
+        chatHistory.forEach(async (msg: Message) =>{
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
+            msg = await decryptClient(msg, key, STATIC_IV);
             if(msg.id>lastMsgId){
+                ///msg.text = decryptClient(msg.text, key, STATIC_IV);
                 allMessages.push(msg);
                 displayMessages(allMessages);
                 lastMsgId = msg.id;
@@ -118,7 +123,9 @@ async function receiveMessages(username: string){
 };
 
 function displayMessages(allMsgs: Message[]):void{
-    print("\x1Bc"); // clears console
+    if(logging == false){
+        print("\x1Bc"); // clears console
+    }
     print("📬 --- CHAT HISTORY ---");
     allMsgs.forEach(msg => {
         if(msg.user !== username){
@@ -137,6 +144,10 @@ function usernamePrompt():string{
     }
     return usernameTmp;
 };
+
+const key = await deriveKeyFromPassword(password, salt);
+
+
 
 username = usernamePrompt();
 

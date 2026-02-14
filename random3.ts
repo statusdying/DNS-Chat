@@ -24,7 +24,7 @@ const password = "my-super-secret-password";
 // you can use a fixed string (though less secure against rainbow tables).
 const salt = new TextEncoder().encode("dns-chat-application-salt"); 
 
-async function deriveKeyFromPassword(pass: string, encodedSalt: Uint8Array) {
+export async function deriveKeyFromPassword(pass: string, encodedSalt: Uint8Array) {
   const enc = new TextEncoder();
   
   // A. Import the password string as "raw" key material

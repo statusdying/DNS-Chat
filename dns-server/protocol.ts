@@ -1,5 +1,7 @@
 // protocol.ts
 
+import { privateEncrypt } from "node:crypto";
+
 // Převede text (včetně emoji) na Hex string
 export function encodeMessage(text: string): string {
   const encoder = new TextEncoder();
@@ -97,6 +99,34 @@ export interface Message{
   nonDupId: number;
 }
 
+export async function deriveKeyFromPassword(pass: string, encodedSalt: Uint8Array) {
+  const enc = new TextEncoder();
+  
+  // A. Import the password string as "raw" key material
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", 
+    enc.encode(pass), 
+    { name: "PBKDF2" }, 
+    false, 
+    ["deriveKey"]
+  );
+
+  // B. Run PBKDF2 to stretch it into a strong AES-CBC key
+  let derivedKey =  crypto.subtle.deriveKey(
+    {
+        name: "PBKDF2",
+        salt: encodedSalt as BufferSource,
+        iterations: 100000, // High number slows down brute-force attacks
+        hash: "SHA-256",
+    },
+        keyMaterial,
+        { name: "AES-CBC", length: 128 },
+        true, // Key is extractable (optional)
+        ["encrypt", "decrypt"]
+  );
+  return derivedKey;
+}
+
 export async function encryptMessage(text: string, key: CryptoKey, iv: Uint8Array) {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
@@ -157,16 +187,27 @@ export function decodeAndNotDecryptServer(encodedString: string) {
   const userPart = textDecoder.decode(decodedMsg.slice(0,firstHyphenIndex));
   const textPart = decodedMsg.slice(firstHyphenIndex + 1,lastHyphenIndex);
   const nonDupIdPart = textDecoder.decode(decodedMsg.slice(lastHyphenIndex + 1));
-  console.log("raw:", userPart, textPart.toBase64(), nonDupIdPart);
+  
+  let textPartFinal;
+  console.log("ENC: ", textDecoder.decode(textPart));
+  if(textDecoder.decode(textPart) == "ping"){
+    console.log("ping")
+    textPartFinal = textDecoder.decode(textPart);
+  }else{
+    textPartFinal = textPart.toBase64();
+  }
+
+  console.log("raw:", userPart, textPartFinal, nonDupIdPart);
   //const decryptText = await decryptMessage(textPart, key);
   //console.log(userPart + "-" + decryptText + "-" + nonDupIdPart);
-  const msg: Message = {
-    user: userPart, 
-    text: textPart.toBase64(), 
-    id: 0, 
-    nonDupId: Number(nonDupIdPart)
-  };
-  return msg; 
+  //const msg: Message = {
+  //  user: userPart, 
+  //  text: textPart.toBase64(), 
+  //  id: 0, 
+  //  nonDupId: Number(nonDupIdPart)
+  //};
+  let msgString = userPart + "-" + textPartFinal + "-" + nonDupIdPart;
+  return msgString; 
 }
 
 export async function decryptClient(message:Message, key: CryptoKey, iv:Uint8Array) {
