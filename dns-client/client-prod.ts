@@ -117,7 +117,8 @@ async function receiveMessages(username: string){
             if(encryption){
                 msg = await decryptClient(msg, key, STATIC_IV);
             }else{
-                msg.text = atob(msg.text);
+                let TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
+                msg.text = new TextDecoder().decode(TextInBase64Uint8);
             }
             
             if(msg.id>lastMsgId){
