@@ -9,7 +9,8 @@ const domain: string = config.dns_server_domain;
 const password: string = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
-let logging = true;
+let encryption = false;
+let logging = false;
 let local = true;
 let lastMsgId: number = 0;
 let username: string = "";
@@ -45,24 +46,28 @@ async function sendMessage(input:string){
 
     allMessages.push(sendMsg);
 
-    let encodedMsgString  = await encodeAndEncryptClient(sendMsg, key, STATIC_IV);
+    let encodedMsgString;
+    if (encryption) {
+        encodedMsgString = await encodeAndEncryptClient(sendMsg, key, STATIC_IV);
+    }else{
+        const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
+        encodedMsgString = EncodeByBase36(allTextToEncode);
+    }
     
-    const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
 
     sendMsgIndex++;
     if(sendMsgIndex > 10) sendMsgIndex = 0; 
 
-    let encodedHex:string = EncodeByBase36(allTextToEncode);
-
     // 2.5 Split message by 63 chars
-    const encodedHexArray = encodedHex.match(/.{1,63}/g);
-    if(encodedHexArray != null){
-        encodedHex = encodedHexArray.join(".");    
+    const encodedMsgArray = encodedMsgString.match(/.{1,63}/g);
+    if(encodedMsgArray != null){
+        encodedMsgString = encodedMsgArray.join(".");    
     }
     const dnsQuery = `${encodedMsgString}${domain}`;
 
     if(logging == true){
-        print(`📝 Sending message: "${allTextToEncode}"`);
+        print(`📝 Sending message: "${encodedMsgString}"`);
+        print(`Decoded: ${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`)
         print("domain msg query:",dnsQuery);
     }
 
@@ -109,7 +114,12 @@ async function receiveMessages(username: string){
         const chatHistory: Message[] = JSON.parse(jsonStr);
         chatHistory.forEach(async (msg: Message) =>{
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
-            msg = await decryptClient(msg, key, STATIC_IV);
+            if(encryption){
+                msg = await decryptClient(msg, key, STATIC_IV);
+            }else{
+                msg.text = atob(msg.text);
+            }
+            
             if(msg.id>lastMsgId){
                 ///msg.text = decryptClient(msg.text, key, STATIC_IV);
                 allMessages.push(msg);

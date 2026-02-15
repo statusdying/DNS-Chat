@@ -213,7 +213,7 @@ export function decodeAndNotDecryptServer(encodedString: string) {
 export async function decryptClient(message:Message, key: CryptoKey, iv:Uint8Array) {
   const encryptBytes = Uint8Array.fromBase64(message.text); //msg.text;
   const decryptedText = await decryptMessage(encryptBytes,key, iv);
-  console.log(decryptedText);
+  //console.log(decryptedText);
   message.text = decryptedText;
   return message;
 }
