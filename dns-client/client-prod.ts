@@ -1,6 +1,6 @@
 // client.ts
-import { encodeMessage, EncodeByBase36, encodeAndEncryptClient, decryptClient } from "../dns-server/protocol.ts";
-import { encryptMessage, deriveKeyFromPassword } from "../dns-server/protocol.ts"
+import { EncodeByBase36, encodeAndEncryptClient, decryptClient } from "../dns-server/protocol.ts";
+import { deriveKeyFromPassword } from "../dns-server/protocol.ts"
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
 
@@ -115,9 +115,15 @@ async function receiveMessages(username: string){
         chatHistory.forEach(async (msg: Message) =>{
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
             if(encryption){
-                msg = await decryptClient(msg, key, STATIC_IV);
+                try{
+                    msg = await decryptClient(msg, key, STATIC_IV);
+                }catch(e){
+                    print(`User: ${msg.user} is probably not using encryption!`);
+                    const TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
+                    msg.text = new TextDecoder().decode(TextInBase64Uint8);
+                }
             }else{
-                let TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
+                const TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
                 msg.text = new TextDecoder().decode(TextInBase64Uint8);
             }
             
