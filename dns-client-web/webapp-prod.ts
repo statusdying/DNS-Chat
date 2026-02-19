@@ -1,10 +1,13 @@
 // client.ts
-import { encodeMessage, EncodeByBase36 } from "../dns-server/protocol.ts";
+import { EncodeByBase36, encodeAndEncryptClient, decryptClient, deriveKeyFromPassword } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
 const print = console.log;
 const domain = config.dns_server_domain;
 const password = config.password;
+const salt = new TextEncoder().encode(config.salt); 
+const STATIC_IV = new Uint8Array(16);
+let encryption = true;
 let local = true;
 let lastMsgId: number = 0;
 let sendMsgIndex = 0;
@@ -50,16 +53,24 @@ async function sendMessage(input:string){
     websocketAddr.send(JSON.stringify(allMessages)); 
     displayMessages(allMessages);
 
-    let encodedHex:string = EncodeByBase36(messageToEncode);
+    let encodedMsgString = "";
+    if (encryption) {
+        encodedMsgString = await encodeAndEncryptClient(sendMsg, key, STATIC_IV);
+    }else{
+        const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
+        encodedMsgString = EncodeByBase36(allTextToEncode);
+    }
+
+    //let encodedHex:string = EncodeByBase36(messageToEncode);
 
     // Split message by 63 characters
-    const encodedHexArray = encodedHex.match(/.{1,63}/g);
-    if(encodedHexArray != null){
-        encodedHex = encodedHexArray.join(".");    
+    const encodedMsgArray = encodedMsgString.match(/.{1,63}/g);
+    if(encodedMsgArray != null){
+        encodedMsgString = encodedMsgArray.join(".");    
     }
-    const dnsQuery = `${encodedHex}${domain}`;
+    const dnsQuery = `${encodedMsgString}${domain}`;
     print("domain msg query:",dnsQuery);
-
+    print(`Decoded: ${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`)
     try{
         //using Deno.resolveDNS to send packets through DNS resolver and not directly to DNS server
         if(local == true){
@@ -94,8 +105,21 @@ async function receiveMessages(username: string){
     if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
         const jsonStr = fixedString.substring(jsonStartIndex, jsonEndIndex + 2);
         const chatHistory: Message[] = JSON.parse(jsonStr);
-        chatHistory.forEach((msg: Message) =>{
+        chatHistory.forEach(async (msg: Message) =>{
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
+            if(encryption){
+                try{
+                    msg = await decryptClient(msg, key, STATIC_IV);
+                }catch(e){
+                    print(`User: ${msg.user} is probably not using encryption!`);
+                    const TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
+                    msg.text = new TextDecoder().decode(TextInBase64Uint8);
+                }
+            }else{
+                const TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
+                msg.text = new TextDecoder().decode(TextInBase64Uint8);
+            }
+
             if(msg.id>lastMsgId){
                 allMessages.push(msg);
                 lastMsgId = msg.id;
@@ -121,7 +145,7 @@ function displayMessages(allMsgs: Message[]):void{
     });
     print("-----------------------");
 }
-
+const key = await deriveKeyFromPassword(password, salt);
 
 Deno.serve({
   port: 8081,

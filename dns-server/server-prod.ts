@@ -1,5 +1,5 @@
 // server.ts
-import { DecodeByBase36 } from "./protocol.ts";
+import { DecodeByBase36, decodeAndNotDecryptServer } from "./protocol.ts";
 
 function decodeMessage(hex: string): string {
   const cleanHex = hex.replace(/\./g, "");
@@ -24,7 +24,7 @@ const print = console.log;
 
 const PORT:number = 5300;
 const HOSTNAME: string = "0.0.0.0";
-let logging: boolean = false;
+let logging: boolean = true;
 
 const messages: Message[] = [];
 const unfinishedMessages: Message[] = [];
@@ -168,7 +168,7 @@ async function handleServer() {
       
       let decodedMessage:string;
       try {
-          decodedMessage = DecodeByBase36(incomingMsg)
+          decodedMessage = decodeAndNotDecryptServer(incomingMsg)
       } catch {
           // If it's not hex, it is some random stuff
           decodedMessage = "[Invalid format]";
