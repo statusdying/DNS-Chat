@@ -160,8 +160,8 @@ export async function encodeAndEncryptClient(msg: Message, key: CryptoKey, iv: U
   const encryptText = await encryptMessage(msg.text, key, iv);
   console.log(encryptText, encryptText.length);
   const textEncoder = new TextEncoder();
-  const usernamePart = textEncoder.encode(msg.user + "-");
-  const nonDupIdPart = textEncoder.encode("-" + msg.nonDupId);
+  const usernamePart = textEncoder.encode(msg.user + ".");
+  const nonDupIdPart = textEncoder.encode("." + msg.nonDupId);
   const totalLength = usernamePart.length + encryptText.length  + nonDupIdPart.length;
 
   const result = new Uint8Array(totalLength);
@@ -235,4 +235,13 @@ if (import.meta.main) {
   console.log("Encoded:", encodeB32); // "elddogpih798rkezu25w"
   console.log("Decoded:", decodedB32); // "Deno is great"
 
+}
+
+export function encodeByBase64(str: string){
+  return new TextEncoder().encode(str).toBase64();
+}
+
+export function decodeByBase64(base64String: string){
+  const TextInBase64Uint8 = Uint8Array.fromBase64(base64String);
+  return new TextDecoder().decode(TextInBase64Uint8);
 }

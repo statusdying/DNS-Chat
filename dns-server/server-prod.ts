@@ -1,5 +1,5 @@
 // server.ts
-import { DecodeByBase36, decodeAndNotDecryptServer } from "./protocol.ts";
+import { DecodeByBase36, DecodeByBase36ToBytes, encodeByBase64, decodeByBase64 } from "./protocol.ts";
 
 function decodeMessage(hex: string): string {
   const cleanHex = hex.replace(/\./g, "");
@@ -141,7 +141,7 @@ function buildResponse(req: Uint8Array, txt: string): Uint8Array {
 
 
 function isCorrectFormat(plaintextMsg:string): boolean{
-  if(plaintextMsg.indexOf('-') > 0){
+  if(plaintextMsg.split('.').length > 4){
     return true;
   }
   return false;
@@ -153,51 +153,46 @@ async function handleServer() {
     try {
       const domain = parseDomainName(data, 12);
 
-      
-
       // Protocol: chat.domain.com
       // The first domain label (on leftside) is our message
       const encodedMessages = domain.split(".").slice(0,-3);
+      print("encodedMessages", encodedMessages);
+      const encodedUsername = encodedMessages.at(0) || "[Invalid format]";
+      const encodedNonDupId = encodedMessages.at(-1) || "[Invalid format]";
+      let encodedText = encodedMessages.slice(1,-1).join("");
 
+      print("Refactored Msg:",encodedUsername, encodedNonDupId, encodedText);
       if(logging == true){
         print(domain);
         print("firstLabel:",encodedMessages);
       }
-      // Message needs to be decoded from hex encoding
+      // Message needs to be decoded from Base32 encoding
       const incomingMsg:string = encodedMessages.join("");
       
-      let decodedMessage:string;
+      let username = "";
+      let text = "";
+      let lastSentId: number = 0;
       try {
-          decodedMessage = decodeAndNotDecryptServer(incomingMsg)
+        username = DecodeByBase36(encodedUsername);
+        const textBytes = DecodeByBase36ToBytes(encodedText);
+        text = textBytes.toBase64();
+        lastSentId = Number(DecodeByBase36(encodedNonDupId));
       } catch {
           // If it's not hex, it is some random stuff
-          decodedMessage = "[Invalid format]";
+          text = "[Invalid format]";
       }
 
-      if(!isCorrectFormat(decodedMessage)){
-        decodedMessage = "[Invalid format]";
-      }
-
-      const firstHyphen: number = decodedMessage.indexOf('-');
-      const lastHyphen: number = decodedMessage.lastIndexOf('-');
-      const username = decodedMessage.slice(0, firstHyphen);
-      const text = decodedMessage.slice(firstHyphen + 1, lastHyphen);
-      const lastSentId: number = Number(decodedMessage.slice(lastHyphen + 1));
       let otherUsersMsgs: Message[] = [];
-      if (decodedMessage !== "[Invalid format]" && decodedMessage.length > 0 && remoteAddr.transport === "udp") {
+      if (![encodedUsername,text,encodedNonDupId].includes("[Invalid format]") && text.length > 0 && remoteAddr.transport === "udp") {
         
-        print(`💬 New message from ${remoteAddr.hostname}: "${decodedMessage}"`);
-        
-        //const lastMsg = messages[messages.length - 1];
-        //const isDuplicate = lastMsg && lastMsg.user === username && lastMsg.text === text && lastMsg.nonDupId === lastSentId;
-        const isDuplicate = messages.some((msg: Message) => msg.user === username && msg.nonDupId === lastSentId);
+        print(`💬 New message from ${remoteAddr.hostname}: "${username} ${text} ${lastSentId}"`);
+        const isDuplicate = messages.some((msg: Message) => msg.user === username && msg.text === text && msg.nonDupId === lastSentId);
 
         if (isDuplicate) {
-
           if(logging == true){
             print(`Duplicated packet ignored (DNS Retry) od: ${username} ${text},`);
           }
-        } else if(!text.startsWith("ping")){
+        } else if(!decodeByBase64(text).startsWith("ping")){
           const message: Message = {
             text: text, 
             id: lastId, 
@@ -210,7 +205,7 @@ async function handleServer() {
         
         // Maintain history size to 10 last messages
         if (messages.length > 10) messages.shift();
-      
+        print(messages);
         //messages.forEach(message => {
         //  if(message.user != username){
         //    //print("Comparison:" +  message.user + username)

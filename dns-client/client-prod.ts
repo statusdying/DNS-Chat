@@ -1,5 +1,5 @@
 // client.ts
-import { EncodeByBase36, encodeAndEncryptClient, decryptClient } from "../dns-server/protocol.ts";
+import { EncodeByBase36, EncodeByBase36FromBytes, encryptMessage, decryptClient, decodeByBase64 } from "../dns-server/protocol.ts";
 import { deriveKeyFromPassword } from "../dns-server/protocol.ts"
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
@@ -9,7 +9,7 @@ const domain: string = config.dns_server_domain;
 const password: string = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
-let encryption = false;
+let encryption = true;
 let logging = false;
 let local = true;
 let lastMsgId: number = 0;
@@ -32,13 +32,10 @@ function fixDnsEncoding(binaryString: string): string {
 }
 
 async function sendMessage(input:string){
-    let myText:string = "empty message";
-    if(input != null){
-        myText = input;
-    }
+    input = input ?? "empty message"
 
     const sendMsg: Message = {  
-        text: myText,
+        text: input,
         id: 0,
         user: username,
         nonDupId: sendMsgIndex
@@ -48,26 +45,37 @@ async function sendMessage(input:string){
 
     let encodedMsgString;
     if (encryption) {
-        encodedMsgString = await encodeAndEncryptClient(sendMsg, key, STATIC_IV);
+        const encodedUsername = EncodeByBase36(sendMsg.user);
+        const encryptedText = await encryptMessage(sendMsg.text, key, STATIC_IV)
+        let encodedAndEncryptedText = EncodeByBase36FromBytes(encryptedText);
+        const encodedNonDupId = EncodeByBase36(String(sendMsg.nonDupId));
+
+        const encodedTextArray = encodedAndEncryptedText.match(/.{1,63}/g);
+        if(encodedTextArray){
+            encodedAndEncryptedText = encodedTextArray.join(".");    
+        }
+        encodedMsgString = `${encodedUsername}.${encodedAndEncryptedText}.${encodedNonDupId}`;
     }else{
-        const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
-        encodedMsgString = EncodeByBase36(allTextToEncode);
+        const encodedUsername = EncodeByBase36(sendMsg.user);
+        let encodedText = EncodeByBase36(sendMsg.text);
+        const encodedNonDupId = EncodeByBase36(String(sendMsg.nonDupId));
+
+        const encodedTextArray = encodedText.match(/.{1,63}/g);
+        if(encodedTextArray){
+            encodedText = encodedTextArray.join(".");    
+        }
+        encodedMsgString = `${encodedUsername}.${encodedText}.${encodedNonDupId}`;
     }
     
 
     sendMsgIndex++;
     if(sendMsgIndex > 10) sendMsgIndex = 0; 
 
-    // 2.5 Split message by 63 chars
-    const encodedMsgArray = encodedMsgString.match(/.{1,63}/g);
-    if(encodedMsgArray != null){
-        encodedMsgString = encodedMsgArray.join(".");    
-    }
     const dnsQuery = `${encodedMsgString}${domain}`;
 
     if(logging == true){
         print(`📝 Sending message: "${encodedMsgString}"`);
-        print(`Decoded: ${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`)
+        print(`Decoded: ${sendMsg.user}.${sendMsg.text}.${sendMsg.nonDupId}`)
         print("domain msg query:",dnsQuery);
     }
 
@@ -87,8 +95,8 @@ async function sendMessage(input:string){
 };
 
 async function receiveMessages(username: string){ 
-    const encodedHex:string = EncodeByBase36(`${username}-ping-${lastMsgId}`);
-    const dnsQuery = `${encodedHex}${domain}`; 
+    const encodedPing:string = EncodeByBase36(username) + "." + EncodeByBase36("ping") + "." + EncodeByBase36(String(lastMsgId));
+    const dnsQuery = `${encodedPing}${domain}`; 
 
     if(logging == true){
         print("domain refresh query:",dnsQuery);
@@ -156,8 +164,12 @@ function displayMessages(allMsgs: Message[]):void{
 
 function usernamePrompt():string{
     let usernameTmp;
-    while(usernameTmp == "" || usernameTmp == null){
+    while((usernameTmp == "" || usernameTmp == null)){
         usernameTmp = prompt("Username:");
+        if(usernameTmp && usernameTmp?.length >= 64){
+            print("Max username length is 63");
+            usernameTmp = "";
+        }
     }
     return usernameTmp;
 };
@@ -179,12 +191,13 @@ const decoder = new TextDecoder();
 for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
-    const userText = `${username}-${text}`
     if(text == "exit()"){
         break;
     }
-
-    await sendMessage(text);
+    
+    if(text){
+        await sendMessage(text);
+    }
 }
 
 //use chcp 65001 on Windows for Czech
