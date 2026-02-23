@@ -8,7 +8,7 @@ const password = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
 const idGen: Generator = idGenerator();
-let encryption = true;
+let encryption = false;
 let logging = false;
 let local = true;
 let lastMsgId: number = 0;
@@ -169,7 +169,7 @@ Deno.serve({
       //let file = await Deno.open("./index.html", { read: true });
       let file = await Deno.readTextFile("index.html");
       if(!encryption){
-        file = file.replace("<h1>DNS Secure Chat</h1>","<h1>DNS <s>Secure</s> Chat</h1>");
+        file = file.replace(`<h1>DNS Secure Chat</h1>`,`<h1>DNS <s style="text-decoration-color: red;">Secure</s> Chat</h1>`);
       }
       return new Response(file, {
         headers: { "content-type": "text/html" },
