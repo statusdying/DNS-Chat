@@ -1,5 +1,5 @@
 // client.ts
-import { EncodeByBase36, EncodeByBase36FromBytes, encryptMessage, decryptClient, decodeByBase64, deriveKeyFromPassword } from "../dns-server/protocol.ts";
+import { EncodeByBase36, EncodeByBase36FromBytes, encryptMessage, decryptClient, decodeByBase64, deriveKeyFromPassword, idGenerator } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
 const print = console.log;
@@ -7,6 +7,7 @@ const domain = config.dns_server_domain;
 const password = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
+const idGen: Generator = idGenerator();
 let encryption = true;
 let logging = false;
 let local = true;
@@ -25,17 +26,18 @@ function fixDnsEncoding(binaryString: string): string {
     for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
     }
+
     // decode it back as UTF8
     return new TextDecoder("utf-8").decode(bytes);
 }
 
-async function sendMessage(input:string){
+async function sendMessage(input: string){
     input = input ?? "empty message"
     const sendMsg: Message = {  
         text: input.trim(),
         id: 0,
         user: username,
-        nonDupId: sendMsgIndex
+        nonDupId: idGen.next().value
     };
     allMessages.push(sendMsg);
     
@@ -44,7 +46,7 @@ async function sendMessage(input:string){
             const encodedUsername = EncodeByBase36(sendMsg.user);
             const encryptedText = await encryptMessage(sendMsg.text, key, STATIC_IV)
             let encodedAndEncryptedText = EncodeByBase36FromBytes(encryptedText);
-            const encodedNonDupId = EncodeByBase36(String(sendMsg.nonDupId));
+            const encodedNonDupId = sendMsg.nonDupId;
     
             const encodedTextArray = encodedAndEncryptedText.match(/.{1,63}/g);
             if(encodedTextArray){
@@ -62,8 +64,8 @@ async function sendMessage(input:string){
             }
             encodedMsgString = `${encodedUsername}.${encodedText}.${encodedNonDupId}`;
         }
-    // change Index for each message to get rid of duplications on serverside
-    // DNS resolver can sometimes send DNS request twice
+
+
     sendMsgIndex++;
     if(sendMsgIndex > 10) sendMsgIndex = 0; 
     
@@ -163,11 +165,15 @@ Deno.serve({
         if(username === "" && usernameRaw !== null){
             username = usernameRaw;
         }
-        
-      // If the request is a normal HTTP request,
-      // we serve the client HTML file.
-      const file = await Deno.open("./index.html", { read: true });
-      return new Response(file.readable);
+
+      //let file = await Deno.open("./index.html", { read: true });
+      let file = await Deno.readTextFile("index.html");
+      if(!encryption){
+        file = file.replace("<h1>DNS Secure Chat</h1>","<h1>DNS <s>Secure</s> Chat</h1>");
+      }
+      return new Response(file, {
+        headers: { "content-type": "text/html" },
+      });
     }
     // If the request is a websocket upgrade,
     // we need to use the Deno.upgradeWebSocket helper

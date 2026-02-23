@@ -1,44 +1,36 @@
-import { config } from "./config.ts";
-import { EncodeByBase36 } from "./dns-server/protocol.ts";
-let print = console.log;
-//
-//const text = "hello world yepěščěčš§ů.)ú..ú)čšě365434ščě čššě sd dfšěč.ů§";
-//
-//
-//print(EncodeByBase36(" "));
-//print(EncodeByBase36("hello"), EncodeByBase36("\xFF"), EncodeByBase36("world"), EncodeByBase36(" "), EncodeByBase36("yep"));
-//print(EncodeByBase36(text));
-
-const domain: string = config.dns_server_domain;
-const password: string = config.password;
-let text = "hello how are you? řččččččččččččččččččččččččččččččččččččččřřřřřřřřřřřřřřřřřřřřřřřřěčšššššššššš"
-let NonDupId: number = 0;
-let username: string = "User454";
-
-function calculateBestPossibleTextLength(domain: string, username: string, text: string, NonDupId: any): number{
-    if(!domain.startsWith(".")){
-        domain = domain + "."
+function* idGenerator() {
+    let id = 48;
+    let id2 = 48;
+    while(true){
+        yield String.fromCharCode(id2).concat(String.fromCharCode(id));
+        [id, id2] = increment(id,id2);
     }
-    // 253 is max possible length to use minus domain name and minus 3 for having every 64th char as dot
-    let freeSpace = 253 - domain.length - 3;
-    let approxFreeLength = Math.floor(freeSpace / 1.5479) //  approximate length change by 1.5479
-    approxFreeLength = approxFreeLength - username.length - NonDupId.toString().length - 2; // <username> - <text> - <id>, 2 means count of hyphens
-    print(approxFreeLength, "free space for Text from" ,freeSpace);
-    return approxFreeLength;
-}
 
-let BestPossibleTextLength = calculateBestPossibleTextLength(domain, username, text, NonDupId);
-
-function fillMaxTextLength(domain: string, username: string, text: string, NonDupId: any, bestPossibleTextLength: number){
-    
-    let subText = text.substring(0, bestPossibleTextLength);
-    let encodedMsg = EncodeByBase36(`${username}-${text}-${NonDupId}`);
-    let encodedMsgArray = encodedMsg.match(/.{1,63}/g);
-    let encodedMsgWithDots: string = "";
-    if(encodedMsgArray != null){
-        encodedMsgWithDots = encodedMsgArray.join(".");    
+    function increment(num: number, num2: number){
+        num++; 
+        if(num > 57 && num < 97){
+            num = 97;
+        }else if(num > 122){
+            num = 48;
+            num2++;
+            if(num2 > 57 && num2 < 97){
+                num2 = 97;
+            }else if(num2 > 122){
+                num2 = 48;
+            }
+        }
+        return [num, num2];
     }
-    const QueryLength:number = (`${encodedMsgWithDots}${domain}`).length;
-    print(QueryLength);
+
 }
-fillMaxTextLength(domain, username, text, NonDupId, BestPossibleTextLength);
+const x:Generator = idGenerator();
+
+//console.log(x.next(), x.next());
+//console.log(x.next(), x.next());
+
+for(let i = 0; i<=1300; i++){
+    //let y = String.fromCharCode(i);
+    //console.log(i, "|", String.fromCharCode(i), "|", "|", y.charCodeAt(0));
+    const id = x.next().value;
+    console.log(i, "|", id, "|") // String.fromCharCode(id1), String.fromCharCode(id2)
+}

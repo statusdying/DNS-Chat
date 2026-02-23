@@ -1,5 +1,5 @@
 // server.ts
-import { DecodeByBase36, DecodeByBase36ToBytes, encodeByBase64, decodeByBase64 } from "./protocol.ts";
+import { DecodeByBase36, DecodeByBase36ToBytes, encodeByBase64, decodeByBase64, Message } from "./protocol.ts";
 
 function decodeMessage(hex: string): string {
   const cleanHex = hex.replace(/\./g, "");
@@ -13,12 +13,12 @@ function decodeMessage(hex: string): string {
   return decoder.decode(bytes);
 }
 
-interface Message{
-  text: string;
-  id: number;
-  user: string;
-  nonDupId: number;
-}
+//interface Message{
+//  text: string;
+//  id: number;
+//  user: string;
+//  nonDupId: number | string;
+//}
 
 const print = console.log;
 
@@ -171,12 +171,12 @@ async function handleServer() {
       
       let username = "";
       let text = "";
-      let lastSentId: number = 0;
+      let lastSentId: number | string = 0;
       try {
         username = DecodeByBase36(encodedUsername);
         const textBytes = DecodeByBase36ToBytes(encodedText);
         text = textBytes.toBase64();
-        lastSentId = Number(DecodeByBase36(encodedNonDupId));
+        lastSentId = encodedNonDupId;
       } catch {
           // If it's not hex, it is some random stuff
           text = "[Invalid format]";

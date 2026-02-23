@@ -1,21 +1,19 @@
 // protocol.ts
 
-import { privateEncrypt } from "node:crypto";
-
-// Převede text (včetně emoji) na Hex string
+// turn any text to hex string
 export function encodeMessage(text: string): string {
   const encoder = new TextEncoder();
   const data = encoder.encode(text); // Uint8Array
   
-  // Převedeme každý bajt na hex kód (např. 255 -> "ff")
+  // turn each byte to hex code
   return Array.from(data)
     .map(byte => byte.toString(16).padStart(2, "0"))
     .join("");
 }
 
-// Převede Hex string zpátky na text
+// Turn hax string back to string
 export function decodeMessage(hex: string): string {
-  // Odstraníme případné tečky, pokud by tam zůstaly z domény
+  // removed possible dots from domain
   const cleanHex = hex.replace(/\./g, "");
   
   const bytes = new Uint8Array(cleanHex.length / 2);
@@ -96,7 +94,7 @@ export interface Message{
   text: string;
   id: number;
   user: string;
-  nonDupId: number;
+  nonDupId: number | string;
 }
 
 export async function deriveKeyFromPassword(pass: string, encodedSalt: Uint8Array) {
@@ -244,4 +242,30 @@ export function encodeByBase64(str: string){
 export function decodeByBase64(base64String: string){
   const TextInBase64Uint8 = Uint8Array.fromBase64(base64String);
   return new TextDecoder().decode(TextInBase64Uint8);
+}
+
+export function* idGenerator() {
+    let id = 48;
+    let id2 = 48;
+    while(true){
+        yield String.fromCharCode(id2).concat(String.fromCharCode(id));
+        [id, id2] = increment(id,id2);
+    }
+
+    function increment(num: number, num2: number){
+        num++; 
+        if(num > 57 && num < 97){
+            num = 97;
+        }else if(num > 122){
+            num = 48;
+            num2++;
+            if(num2 > 57 && num2 < 97){
+                num2 = 97;
+            }else if(num2 > 122){
+                num2 = 48;
+            }
+        }
+        return [num, num2];
+    }
+
 }

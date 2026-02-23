@@ -1,5 +1,5 @@
 // client.ts
-import { EncodeByBase36, EncodeByBase36FromBytes, encryptMessage, decryptClient, decodeByBase64 } from "../dns-server/protocol.ts";
+import { EncodeByBase36, EncodeByBase36FromBytes, encryptMessage, decryptClient, decodeByBase64, idGenerator } from "../dns-server/protocol.ts";
 import { deriveKeyFromPassword } from "../dns-server/protocol.ts"
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
@@ -9,6 +9,7 @@ const domain: string = config.dns_server_domain;
 const password: string = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
+const idGen: Generator = idGenerator();
 let encryption = true;
 let logging = false;
 let local = true;
@@ -31,14 +32,13 @@ function fixDnsEncoding(binaryString: string): string {
     return new TextDecoder("utf-8").decode(bytes);
 }
 
-async function sendMessage(input:string){
+async function sendMessage(input: string){
     input = input ?? "empty message"
-
     const sendMsg: Message = {  
         text: input,
         id: 0,
         user: username,
-        nonDupId: sendMsgIndex
+        nonDupId: idGen.next().value
     };
 
     allMessages.push(sendMsg);
@@ -48,7 +48,7 @@ async function sendMessage(input:string){
         const encodedUsername = EncodeByBase36(sendMsg.user);
         const encryptedText = await encryptMessage(sendMsg.text, key, STATIC_IV)
         let encodedAndEncryptedText = EncodeByBase36FromBytes(encryptedText);
-        const encodedNonDupId = EncodeByBase36(String(sendMsg.nonDupId));
+        const encodedNonDupId = sendMsg.nonDupId;
 
         const encodedTextArray = encodedAndEncryptedText.match(/.{1,63}/g);
         if(encodedTextArray){
@@ -98,9 +98,7 @@ async function receiveMessages(username: string){
     const encodedPing:string = EncodeByBase36(username) + "." + EncodeByBase36("ping") + "." + EncodeByBase36(String(lastMsgId));
     const dnsQuery = `${encodedPing}${domain}`; 
 
-    if(logging == true){
-        print("domain refresh query:",dnsQuery);
-    }
+    if(logging) print("domain refresh query:", dnsQuery);
 
     let responses: string[][];
     if(local == true){
