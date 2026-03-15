@@ -10,7 +10,7 @@ const password: string = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
 const idGen: Generator = idGenerator();
-let encryption = true;
+let encryption = false;
 let logging = false;
 let local = true;
 let lastMsgId: number = 0;
@@ -32,6 +32,14 @@ function fixDnsEncoding(binaryString: string): string {
     return new TextDecoder("utf-8").decode(bytes);
 }
 
+function generateUniqueIV(id: string|number, username: string): Uint8Array{
+    const customIvFromString = new Uint8Array(16);
+    if(logging) print("randomIV:", id+username.substring(0,10));
+    const idBytes = new TextEncoder().encode(id+username.substring(0,10));
+    customIvFromString.set(idBytes, 0);
+    return customIvFromString;
+}
+
 async function sendMessage(input: string){
     input = input ?? "empty message"
     const sendMsg: Message = {  
@@ -45,8 +53,9 @@ async function sendMessage(input: string){
 
     let encodedMsgString;
     if (encryption) {
-        const encodedUsername = EncodeByBase36(sendMsg.user);
-        const encryptedText = await encryptMessage(sendMsg.text, key, STATIC_IV)
+        const dynamic_IV:Uint8Array = generateUniqueIV(sendMsg.nonDupId, sendMsg.user);
+        const encodedUsername:string = EncodeByBase36(sendMsg.user);
+        const encryptedText = await encryptMessage(sendMsg.text, key, dynamic_IV);
         let encodedAndEncryptedText = EncodeByBase36FromBytes(encryptedText);
         const encodedNonDupId = sendMsg.nonDupId;
 
@@ -122,7 +131,8 @@ async function receiveMessages(username: string){
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
             if(encryption){
                 try{
-                    msg = await decryptClient(msg, key, STATIC_IV);
+                    const dynamic_IV = generateUniqueIV(msg.nonDupId,msg.user);
+                    msg = await decryptClient(msg, key, dynamic_IV);
                 }catch(e){
                     print(`User: ${msg.user} is probably not using encryption!`);
                     const TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
@@ -149,7 +159,7 @@ function displayMessages(allMsgs: Message[]):void{
     if(logging == false){
         print("\x1Bc"); // clears console
     }
-    print("📬 --- CHAT HISTORY ---");
+    print("  --- CHAT HISTORY ---");
     allMsgs.forEach(msg => {
         if(msg.user !== username){
             print(`\t\t\t${msg.user}: ${msg.text}`);
@@ -173,8 +183,6 @@ function usernamePrompt():string{
 };
 
 const key = await deriveKeyFromPassword(password, salt);
-
-
 
 username = usernamePrompt();
 

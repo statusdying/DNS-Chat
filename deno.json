@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "serv": "cd dns-server && deno run -N --unstable-net server-prod.ts",
+    "client": "cd dns-client && deno run -N --unstable-net client-prod.ts",
+    "web": "cd dns-client-web && deno run --allow-net --unstable-net --allow-read=index.html --allow-run=explorer,open webapp-prod.ts",
+    "all": "cmd /c start cmd /k \"title Server 1 & cd dns-server && deno run -N --unstable-net server-prod.ts\" & cmd /c start cmd /k \"title Client 1 & cd dns-client && deno run -N --unstable-net client-prod.ts\" & cmd /c start cmd /k \"title Client 2 & cd dns-client-web && deno run --allow-net --unstable-net --allow-read=index.html --allow-run=explorer,open webapp-prod.ts\""
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1"
+  }
+}

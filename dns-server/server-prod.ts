@@ -29,6 +29,7 @@ let logging: boolean = true;
 const messages: Message[] = [];
 const unfinishedMessages: Message[] = [];
 let lastId:number = 1;
+let encryptionUniqueId = 0;
 
 console.log(`📡 DNS Chat running on port ${PORT}`);
 
