@@ -1,5 +1,5 @@
-import { config } from "./config-example.ts";
-import { encodeMessage, Message } from "./dns-server/protocol.ts";
+import { config } from "../config-example.ts";
+import { encodeMessage, Message } from "../dns-server/protocol.ts";
 
 const msg: Message = { 
   user: "User0", 
