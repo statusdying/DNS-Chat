@@ -1,5 +1,5 @@
 // client.ts
-import { EncodeByBase36, encodeAndEncryptClient, decryptClient, deriveKeyFromPassword } from "../dns-server/protocol.ts";
+import { EncodeByBase36, EncodeByBase36FromBytes, encryptMessage, decryptClient, decodeByBase64, deriveKeyFromPassword, idGenerator } from "../dns-server/protocol.ts";
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
 const print = console.log;
@@ -7,7 +7,9 @@ const domain = config.dns_server_domain;
 const password = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
-let encryption = true;
+const idGen: Generator = idGenerator();
+let encryption = false;
+let logging = false;
 let local = true;
 let lastMsgId: number = 0;
 let sendMsgIndex = 0;
@@ -24,50 +26,58 @@ function fixDnsEncoding(binaryString: string): string {
     for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
     }
+
     // decode it back as UTF8
     return new TextDecoder("utf-8").decode(bytes);
 }
 
-async function sendMessage(input:string){
-    // 1. Vstup od uživatele (zpráva)
-    let nonNullText:string = "empty message";
-    if(input != null){
-        nonNullText = input;
-    }
-    const sendMsg:Message = {  
-        text: nonNullText.trim(),
+function generateUniqueIV(id: string|number, username: string): Uint8Array{
+    const customIvFromString = new Uint8Array(16);
+    print("randomIV:", id+username.substring(0,10));
+    const idBytes = new TextEncoder().encode(id+username.substring(0,10));
+    customIvFromString.set(idBytes, 0);
+    return customIvFromString;
+}
+
+async function sendMessage(input: string){
+    input = input ?? "empty message"
+    const sendMsg: Message = {  
+        text: input.trim(),
         id: 0,
         user: username,
-        nonDupId: sendMsgIndex
-    } 
+        nonDupId: idGen.next().value
+    };
     allMessages.push(sendMsg);
     
-    // change Index for each message to get rid of duplications on serverside
-    // DNS resolver can sometimes send DNS request twice
+        let encodedMsgString;
+        if (encryption) {
+            const dynamic_IV:Uint8Array = generateUniqueIV(sendMsg.nonDupId, sendMsg.user);
+            const encodedUsername:string = EncodeByBase36(sendMsg.user);
+            const encryptedText = await encryptMessage(sendMsg.text, key, dynamic_IV);
+            let encodedAndEncryptedText = EncodeByBase36FromBytes(encryptedText);
+            const encodedNonDupId = sendMsg.nonDupId;
+    
+            const encodedTextArray = encodedAndEncryptedText.match(/.{1,63}/g);
+            if(encodedTextArray){
+                encodedAndEncryptedText = encodedTextArray.join(".");    
+            }
+            encodedMsgString = `${encodedUsername}.${encodedAndEncryptedText}.${encodedNonDupId}`;
+        }else{
+            const encodedUsername = EncodeByBase36(sendMsg.user);
+            let encodedText = EncodeByBase36(sendMsg.text);
+            const encodedNonDupId = EncodeByBase36(String(sendMsg.nonDupId));
+    
+            const encodedTextArray = encodedText.match(/.{1,63}/g);
+            if(encodedTextArray){
+                encodedText = encodedTextArray.join(".");    
+            }
+            encodedMsgString = `${encodedUsername}.${encodedText}.${encodedNonDupId}`;
+        }
+
+
     sendMsgIndex++;
     if(sendMsgIndex > 10) sendMsgIndex = 0; 
     
-    //const text = nonNullText.trim();
-    const messageToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`
-    print("sending text:",messageToEncode)
-    websocketAddr.send(JSON.stringify(allMessages)); 
-    displayMessages(allMessages);
-
-    let encodedMsgString = "";
-    if (encryption) {
-        encodedMsgString = await encodeAndEncryptClient(sendMsg, key, STATIC_IV);
-    }else{
-        const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
-        encodedMsgString = EncodeByBase36(allTextToEncode);
-    }
-
-    //let encodedHex:string = EncodeByBase36(messageToEncode);
-
-    // Split message by 63 characters
-    const encodedMsgArray = encodedMsgString.match(/.{1,63}/g);
-    if(encodedMsgArray != null){
-        encodedMsgString = encodedMsgArray.join(".");    
-    }
     const dnsQuery = `${encodedMsgString}${domain}`;
     print("domain msg query:",dnsQuery);
     print(`Decoded: ${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`)
@@ -85,9 +95,10 @@ async function sendMessage(input:string){
 };
 
 async function receiveMessages(username: string){
-    const encodedHex:string = EncodeByBase36(`${username}-ping-${lastMsgId}`);
-    const dnsQuery = `${encodedHex}${domain}`; //
-    print("domain refresh query:",dnsQuery);
+    const encodedPing:string = EncodeByBase36(username) + "." + EncodeByBase36("ping") + "." + EncodeByBase36(String(lastMsgId));
+    const dnsQuery = `${encodedPing}${domain}`;
+
+    if(logging) print("domain refresh query:", dnsQuery);
 
     let responses: string[][];
     if(local == true){
@@ -97,7 +108,10 @@ async function receiveMessages(username: string){
     }
 
     const rawString = responses.flat().join("");
-    print("rawString:" + rawString)
+
+    if(logging == true){
+        print("DNS raw response:" + rawString);
+    }
 
     const fixedString = fixDnsEncoding(rawString);
     const jsonStartIndex = fixedString.indexOf("[{");
@@ -109,7 +123,8 @@ async function receiveMessages(username: string){
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
             if(encryption){
                 try{
-                    msg = await decryptClient(msg, key, STATIC_IV);
+                    const dynamic_IV = generateUniqueIV(msg.nonDupId,msg.user);
+                    msg = await decryptClient(msg, key, dynamic_IV);
                 }catch(e){
                     print(`User: ${msg.user} is probably not using encryption!`);
                     const TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
@@ -134,7 +149,9 @@ async function receiveMessages(username: string){
 };
 
 function displayMessages(allMsgs: Message[]):void{
-    print("\x1Bc"); // clears console
+    if(logging == false){
+        print("\x1Bc"); // clears console
+    }
     print("📬 --- CHAT HISTORY ---");
     allMsgs.forEach(msg => {
         if(msg.user !== username){
@@ -144,7 +161,7 @@ function displayMessages(allMsgs: Message[]):void{
         }
     });
     print("-----------------------");
-}
+};
 const key = await deriveKeyFromPassword(password, salt);
 
 Deno.serve({
@@ -158,11 +175,15 @@ Deno.serve({
         if(username === "" && usernameRaw !== null){
             username = usernameRaw;
         }
-        
-      // If the request is a normal HTTP request,
-      // we serve the client HTML file.
-      const file = await Deno.open("./index.html", { read: true });
-      return new Response(file.readable);
+
+      //let file = await Deno.open("./index.html", { read: true });
+      let file = await Deno.readTextFile("index.html");
+      if(!encryption){
+        file = file.replace(`<h1>DNS Secure Chat</h1>`,`<h1>DNS <s style="text-decoration-color: red;">Secure</s> Chat</h1>`);
+      }
+      return new Response(file, {
+        headers: { "content-type": "text/html" },
+      });
     }
     // If the request is a websocket upgrade,
     // we need to use the Deno.upgradeWebSocket helper
@@ -225,7 +246,5 @@ for await(const chunk of Deno.stdin.readable){
 
     await sendMessage(text);
 }
-
-
 
 //use chcp 65001 on Windows for Czech

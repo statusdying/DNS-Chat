@@ -1,5 +1,5 @@
 // client.ts
-import { EncodeByBase36, encodeAndEncryptClient, decryptClient } from "../dns-server/protocol.ts";
+import { EncodeByBase36, EncodeByBase36FromBytes, encryptMessage, decryptClient, decodeByBase64, idGenerator } from "../dns-server/protocol.ts";
 import { deriveKeyFromPassword } from "../dns-server/protocol.ts"
 import { Message } from "../dns-server/protocol.ts";
 import { config } from "../config.ts"
@@ -9,6 +9,7 @@ const domain: string = config.dns_server_domain;
 const password: string = config.password;
 const salt = new TextEncoder().encode(config.salt); 
 const STATIC_IV = new Uint8Array(16);
+const idGen: Generator = idGenerator();
 let encryption = false;
 let logging = false;
 let local = true;
@@ -31,43 +32,59 @@ function fixDnsEncoding(binaryString: string): string {
     return new TextDecoder("utf-8").decode(bytes);
 }
 
-async function sendMessage(input:string){
-    let myText:string = "empty message";
-    if(input != null){
-        myText = input;
-    }
+function generateUniqueIV(id: string|number, username: string): Uint8Array{
+    const customIvFromString = new Uint8Array(16);
+    if(logging) print("randomIV:", id+username.substring(0,10));
+    const idBytes = new TextEncoder().encode(id+username.substring(0,10));
+    customIvFromString.set(idBytes, 0);
+    return customIvFromString;
+}
 
+async function sendMessage(input: string){
+    input = input ?? "empty message"
     const sendMsg: Message = {  
-        text: myText,
+        text: input,
         id: 0,
         user: username,
-        nonDupId: sendMsgIndex
+        nonDupId: idGen.next().value
     };
 
     allMessages.push(sendMsg);
 
     let encodedMsgString;
     if (encryption) {
-        encodedMsgString = await encodeAndEncryptClient(sendMsg, key, STATIC_IV);
+        const dynamic_IV:Uint8Array = generateUniqueIV(sendMsg.nonDupId, sendMsg.user);
+        const encodedUsername:string = EncodeByBase36(sendMsg.user);
+        const encryptedText = await encryptMessage(sendMsg.text, key, dynamic_IV);
+        let encodedAndEncryptedText = EncodeByBase36FromBytes(encryptedText);
+        const encodedNonDupId = sendMsg.nonDupId;
+
+        const encodedTextArray = encodedAndEncryptedText.match(/.{1,63}/g);
+        if(encodedTextArray){
+            encodedAndEncryptedText = encodedTextArray.join(".");    
+        }
+        encodedMsgString = `${encodedUsername}.${encodedAndEncryptedText}.${encodedNonDupId}`;
     }else{
-        const allTextToEncode = `${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`;
-        encodedMsgString = EncodeByBase36(allTextToEncode);
+        const encodedUsername = EncodeByBase36(sendMsg.user);
+        let encodedText = EncodeByBase36(sendMsg.text);
+        const encodedNonDupId = EncodeByBase36(String(sendMsg.nonDupId));
+
+        const encodedTextArray = encodedText.match(/.{1,63}/g);
+        if(encodedTextArray){
+            encodedText = encodedTextArray.join(".");    
+        }
+        encodedMsgString = `${encodedUsername}.${encodedText}.${encodedNonDupId}`;
     }
     
 
     sendMsgIndex++;
     if(sendMsgIndex > 10) sendMsgIndex = 0; 
 
-    // 2.5 Split message by 63 chars
-    const encodedMsgArray = encodedMsgString.match(/.{1,63}/g);
-    if(encodedMsgArray != null){
-        encodedMsgString = encodedMsgArray.join(".");    
-    }
     const dnsQuery = `${encodedMsgString}${domain}`;
 
     if(logging == true){
         print(`📝 Sending message: "${encodedMsgString}"`);
-        print(`Decoded: ${sendMsg.user}-${sendMsg.text}-${sendMsg.nonDupId}`)
+        print(`Decoded: ${sendMsg.user}.${sendMsg.text}.${sendMsg.nonDupId}`)
         print("domain msg query:",dnsQuery);
     }
 
@@ -87,12 +104,10 @@ async function sendMessage(input:string){
 };
 
 async function receiveMessages(username: string){ 
-    const encodedHex:string = EncodeByBase36(`${username}-ping-${lastMsgId}`);
-    const dnsQuery = `${encodedHex}${domain}`; 
+    const encodedPing:string = EncodeByBase36(username) + "." + EncodeByBase36("ping") + "." + EncodeByBase36(String(lastMsgId));
+    const dnsQuery = `${encodedPing}${domain}`; 
 
-    if(logging == true){
-        print("domain refresh query:",dnsQuery);
-    }
+    if(logging) print("domain refresh query:", dnsQuery);
 
     let responses: string[][];
     if(local == true){
@@ -116,7 +131,8 @@ async function receiveMessages(username: string){
             //console.log(`>${msg.user} ${msg.text} ${msg.id}`);
             if(encryption){
                 try{
-                    msg = await decryptClient(msg, key, STATIC_IV);
+                    const dynamic_IV = generateUniqueIV(msg.nonDupId,msg.user);
+                    msg = await decryptClient(msg, key, dynamic_IV);
                 }catch(e){
                     print(`User: ${msg.user} is probably not using encryption!`);
                     const TextInBase64Uint8 = Uint8Array.fromBase64(msg.text);
@@ -143,7 +159,7 @@ function displayMessages(allMsgs: Message[]):void{
     if(logging == false){
         print("\x1Bc"); // clears console
     }
-    print("📬 --- CHAT HISTORY ---");
+    print("  --- CHAT HISTORY ---");
     allMsgs.forEach(msg => {
         if(msg.user !== username){
             print(`\t\t\t${msg.user}: ${msg.text}`);
@@ -156,15 +172,17 @@ function displayMessages(allMsgs: Message[]):void{
 
 function usernamePrompt():string{
     let usernameTmp;
-    while(usernameTmp == "" || usernameTmp == null){
+    while((usernameTmp == "" || usernameTmp == null)){
         usernameTmp = prompt("Username:");
+        if(usernameTmp && usernameTmp?.length >= 64){
+            print("Max username length is 63");
+            usernameTmp = "";
+        }
     }
     return usernameTmp;
 };
 
 const key = await deriveKeyFromPassword(password, salt);
-
-
 
 username = usernamePrompt();
 
@@ -179,12 +197,13 @@ const decoder = new TextDecoder();
 for await(const chunk of Deno.stdin.readable){
     const rawtext = decoder.decode(chunk, { stream: true })
     const text = rawtext.trim();
-    const userText = `${username}-${text}`
     if(text == "exit()"){
         break;
     }
-
-    await sendMessage(text);
+    
+    if(text){
+        await sendMessage(text);
+    }
 }
 
 //use chcp 65001 on Windows for Czech
